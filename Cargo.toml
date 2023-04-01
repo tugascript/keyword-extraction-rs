@@ -1,0 +1,22 @@
+[package]
+name = "keyword_extraction"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-or-later"
+authors = ["Afonso Barracha <barracha.afonso@gmail.com>"]
+publish = false
+
+[lib]
+name = "keyword_extraction"
+path = "src/lib.rs"
+
+[workspace]
+members = [
+    ".",
+    "tokenizer",
+    "tf_idf"
+]
+
+[dependencies]
+tokenizer = { path = "./tokenizer" }
+tf_idf = { path = "./tf_idf" }
