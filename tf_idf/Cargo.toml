@@ -1,0 +1,16 @@
+[package]
+name = "tf_idf"
+version = "0.1.0"
+edition = "2021"
+publish = false
+authors = ["Afonso Barracha <barracha.afonso@gmail.com>"]
+description = "A simple implementation of the TF-IDF algorithm in Rust"
+license = "GPL-3.0-or-later"
+
+[lib]
+name = "tf_idf"
+path = "src/lib.rs"
+
+[dependencies]
+tokenizer = { path = "../tokenizer" }
+unicode-segmentation = "^1"
