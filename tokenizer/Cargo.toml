@@ -1,0 +1,16 @@
+[package]
+name = "tokenizer"
+version = "0.1.0"
+edition = "2021"
+publish = false
+authors = ["Afonso Barracha <barracha.afonso@gmail.com>"]
+description = "A simple tokenizer for the Rust programming language"
+license = "GPL-3.0-or-later"
+
+[lib]
+name = "tokenizer"
+path = "src/lib.rs"
+
+[dependencies]
+unicode-segmentation = "^1"
+regex = "^1"
