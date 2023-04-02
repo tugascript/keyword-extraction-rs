@@ -95,7 +95,7 @@ impl TfIdf {
         };
         let tf = calculate_tf(generate_word_hashmap(&documents));
         let docs_len = documents.len() as f64;
-        let unique_words_map = generate_unique_word_hasmap(&documents);
+        let unique_words_map = generate_unique_word_hashmap(&documents);
         let mut tfidf: HashMap<String, f64> = HashMap::new();
 
         for (word, value) in &tf {
