@@ -31,7 +31,7 @@ fn get_special_char_regex() -> Regex {
 }
 
 fn get_sentence_space_regex() -> Regex {
-    Regex::new(r"(\n|\t|\r)").unwrap()
+    Regex::new(r"[\n\t\r]").unwrap()
 }
 
 fn get_newline_regex() -> Regex {
