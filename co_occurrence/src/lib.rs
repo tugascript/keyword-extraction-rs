@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with keyword-extraction.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::Range};
 
 pub struct CoOccurrence {
     matrix: Vec<Vec<f32>>,
@@ -23,7 +23,7 @@ pub struct CoOccurrence {
     indexes_words: HashMap<usize, String>,
 }
 
-fn get_window_range(window_size: usize, index: usize, words_length: usize) -> (usize, usize) {
+fn get_window_range(window_size: usize, index: usize, words_length: usize) -> Range<usize> {
     let window_start = if index < window_size {
         0
     } else {
@@ -34,7 +34,7 @@ fn get_window_range(window_size: usize, index: usize, words_length: usize) -> (u
     } else {
         index + window_size + 1
     };
-    (window_start, window_end)
+    window_start..window_end
 }
 
 fn create_words_indexes(words: &Vec<String>) -> HashMap<String, usize> {
@@ -61,49 +61,39 @@ fn get_matrix(
     let mut matrix = vec![vec![0.0_f32; length]; length];
     let mut max = 0.0_f32;
 
-    for document in documents {
-        let document_words = document
-            .split_whitespace()
-            .map(|w| w.to_string())
-            .collect::<Vec<String>>();
+    documents.iter().for_each(|doc| {
+        let doc_words = doc.split_whitespace().collect::<Vec<&str>>();
+        doc_words
+            .iter()
+            .enumerate()
+            .filter_map(|(i, w)| words_indexes.get(*w).map(|first_index| (i, *first_index)))
+            .for_each(|(i, first_index)| {
+                get_window_range(window_size, i, doc_words.len())
+                    .filter_map(|j| {
+                        if i == j {
+                            return None;
+                        }
 
-        for (i, word) in document_words.iter().enumerate() {
-            let first_index = match words_indexes.get(word) {
-                Some(w) => w.to_owned(),
-                None => continue,
-            };
-            let (window_start, window_end) = get_window_range(window_size, i, document_words.len());
+                        doc_words
+                            .get(j)
+                            .and_then(|other_word| words_indexes.get(*other_word))
+                            .map(|other_index| (j, *other_index))
+                    })
+                    .for_each(|(_, other_index)| {
+                        matrix[first_index][other_index] += 1.0;
+                        let current = matrix[first_index][other_index];
 
-            for j in window_start..window_end {
-                if i == j {
-                    continue;
-                }
+                        if current > max {
+                            max = current;
+                        }
+                    });
+            });
+    });
 
-                let other_word = match document_words.get(j) {
-                    Some(w) => w,
-                    None => continue,
-                };
-                let other_index = match words_indexes.get(other_word) {
-                    Some(w) => w.to_owned(),
-                    None => continue,
-                };
-
-                matrix[first_index][other_index] += 1.0;
-                let current = matrix[first_index][other_index];
-
-                if current > max {
-                    max = current;
-                }
-            }
-        }
-    }
-
-    for i in 0..length {
-        for j in 0..length {
-            matrix[i][j] /= max;
-        }
-    }
-
+    matrix
+        .iter_mut()
+        .flat_map(|row| row.iter_mut())
+        .for_each(|value| *value /= max);
     matrix
 }
 
