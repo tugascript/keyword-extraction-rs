@@ -14,9 +14,11 @@ path = "src/lib.rs"
 members = [
     ".",
     "tokenizer",
-    "tf_idf"
+    "tf_idf",
+    "co_occurrence"
 ]
 
 [dependencies]
 tokenizer = { path = "./tokenizer" }
 tf_idf = { path = "./tf_idf" }
+co_occurrence = { path = "./co_occurrence" }

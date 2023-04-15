@@ -1,0 +1,14 @@
+[package]
+name = "co_occurrence"
+version = "0.1.0"
+edition = "2021"
+publish = false
+authors = ["Afonso Barracha <barracha.afonso@gmail.com>"]
+description = "A simple co-occurrence matrix implementation in Rust"
+license = "GPL-3.0-or-later"
+
+[lib]
+name = "co_occurrence"
+path = "src/lib.rs"
+
+[dependencies]

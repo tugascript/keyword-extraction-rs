@@ -17,3 +17,4 @@
 
 pub use tokenizer;
 pub use tf_idf;
+pub use co_occurrence;
