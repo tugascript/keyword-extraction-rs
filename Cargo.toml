@@ -22,3 +22,6 @@ members = [
 tokenizer = { path = "./tokenizer" }
 tf_idf = { path = "./tf_idf" }
 co_occurrence = { path = "./co_occurrence" }
+
+[dev-dependencies]
+stop-words = "0.7.1"

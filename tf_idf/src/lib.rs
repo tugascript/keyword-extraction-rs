@@ -20,94 +20,106 @@ use std::collections::{HashMap, HashSet};
 
 use tokenizer::Tokenizer;
 
-pub struct TfIdf(HashMap<String, f64>);
+pub struct TfIdf(HashMap<String, f32>, Vec<String>);
 
 pub enum DocumentSplit {
     Paragraph,
     Sentence,
 }
 
-fn generate_word_hashmap(documents: &Vec<String>) -> HashMap<String, f64> {
-    let mut word_hashmap: HashMap<String, f64> = HashMap::new();
-
-    for document in documents {
-        let words = document.split_whitespace();
-
-        for word in words {
-            let count = word_hashmap.entry(word.to_string()).or_insert(0.0);
+fn generate_word_hashmap(documents: &Vec<String>) -> HashMap<String, f32> {
+    documents
+        .iter()
+        .flat_map(|document| document.split_whitespace().map(|word| word.to_string()))
+        .fold(HashMap::new(), |mut acc, word| {
+            let count = acc.entry(word).or_insert(0.0);
             *count += 1.0;
-        }
-    }
-
-    word_hashmap
+            acc
+        })
 }
 
-fn generate_unique_word_hashmap(documents: &Vec<String>) -> HashMap<String, f64> {
-    let mut unique_word_hashmap: HashMap<String, f64> = HashMap::new();
-
-    for document in documents {
-        let unique_words: HashSet<String> = HashSet::from_iter(
+fn generate_unique_word_hashmap(documents: &Vec<String>) -> HashMap<String, f32> {
+    documents
+        .iter()
+        .map(|document| {
             document
                 .split_whitespace()
-                .into_iter()
-                .map(|s| s.to_owned()),
-        );
-
-        for word in unique_words {
-            let count = unique_word_hashmap.entry(word).or_insert(0.0);
+                .map(|s| s.to_owned())
+                .collect::<HashSet<String>>()
+        })
+        .flat_map(|unique_words| unique_words.into_iter())
+        .fold(HashMap::new(), |mut acc, word| {
+            let count = acc.entry(word).or_insert(0.0);
             *count += 1.0;
-        }
-    }
-
-    unique_word_hashmap
+            acc
+        })
 }
 
-fn calculate_tf(mut tf: HashMap<String, f64>) -> HashMap<String, f64> {
-    let mut total_words: f64 = 0.0;
-
-    for (_, count) in &tf {
-        total_words += *count;
-    }
-
-    for (_, count) in &mut tf {
-        *count /= total_words;
-    }
-
-    tf
+fn calculate_tf(tf: HashMap<String, f32>) -> HashMap<String, f32> {
+    let total_words = tf.values().sum::<f32>();
+    tf.iter()
+        .map(|(word, count)| (word.to_string(), count / total_words))
+        .collect::<HashMap<String, f32>>()
 }
 
-fn calculate_idf(docs_len: f64, word_hashmap: &HashMap<String, f64>, word: &str) -> f64 {
-    let term = word_hashmap.get(word);
+fn calculate_idf(docs_len: f32, word_hashmap: HashMap<String, f32>) -> HashMap<String, f32> {
+    let one = 1.0_f32;
 
-    if let Some(term) = term {
-        let documents_with_term = docs_len / term;
-        documents_with_term.log2()
-    } else {
-        0.0
-    }
+    word_hashmap
+        .iter()
+        .map(|(word, count)| {
+            let documents_with_term = (docs_len + one) / (count + one);
+            (word.to_string(), documents_with_term.ln() + one)
+        })
+        .collect::<HashMap<String, f32>>()
+}
+
+fn calculate_tf_idf(tf: HashMap<String, f32>, idf: HashMap<String, f32>) -> HashMap<String, f32> {
+    tf.iter()
+        .map(|(word, count)| (word.to_string(), count * idf.get(word).unwrap_or(&0.0_f32)))
+        .collect::<HashMap<String, f32>>()
+}
+
+fn l2_normalize(tf_id: HashMap<String, f32>) -> HashMap<String, f32> {
+    let l2_norm = tf_id
+        .values()
+        .map(|value| value * value)
+        .sum::<f32>()
+        .sqrt();
+
+    tf_id
+        .iter()
+        .map(|(key, value)| (key.clone(), value / l2_norm))
+        .collect::<HashMap<String, f32>>()
 }
 
 impl TfIdf {
-    pub fn new(text: &str, stopwords: Vec<String>, doc_split: DocumentSplit, punctuation: Option<Vec<String>>) -> TfIdf {
+    pub fn new(
+        text: &str,
+        stopwords: Vec<String>,
+        doc_split: DocumentSplit,
+        punctuation: Option<Vec<String>>,
+    ) -> TfIdf {
         let documents = match doc_split {
-            DocumentSplit::Paragraph => Tokenizer::new(text, stopwords, punctuation).split_into_paragraphs(),
-            DocumentSplit::Sentence => Tokenizer::new(text, stopwords, punctuation).split_into_sentences(),
+            DocumentSplit::Paragraph => {
+                Tokenizer::new(text, stopwords, punctuation).split_into_paragraphs()
+            }
+            DocumentSplit::Sentence => {
+                Tokenizer::new(text, stopwords, punctuation).split_into_sentences()
+            }
         };
-        let tf = calculate_tf(generate_word_hashmap(&documents));
-        let docs_len = documents.len() as f64;
-        let unique_words_map = generate_unique_word_hashmap(&documents);
-        let mut tfidf: HashMap<String, f64> = HashMap::new();
+        let tf_idf = calculate_tf_idf(
+            calculate_tf(generate_word_hashmap(&documents)),
+            calculate_idf(
+                documents.len() as f32,
+                generate_unique_word_hashmap(&documents),
+            ),
+        );
 
-        for (word, value) in &tf {
-            let idf = calculate_idf(docs_len, &unique_words_map, word);
-            let tfidf_value = value * idf;
-            tfidf.insert(word.to_string(), tfidf_value);
-        }
-
-        Self(tfidf)
+        Self(l2_normalize(tf_idf), documents)
     }
 
-    pub fn get_score(&self, word: &str) -> f64 {
+    pub fn get_score(&self, word: &str) -> f32 {
         let score = self.0.get(word);
 
         if let Some(score) = score {
@@ -117,8 +129,8 @@ impl TfIdf {
         }
     }
 
-    pub fn get_n_best(&self, n: usize) -> Vec<(String, f64)> {
-        let mut sorted_tfidf: Vec<(String, f64)> = self
+    pub fn get_n_best(&self, n: usize) -> Vec<(String, f32)> {
+        let mut sorted_tfidf: Vec<(String, f32)> = self
             .0
             .iter()
             .map(|(word, score)| (word.to_owned(), *score))
@@ -137,5 +149,9 @@ impl TfIdf {
 
         sorted_tfidf.truncate(n);
         sorted_tfidf
+    }
+
+    pub fn get_documents(&self) -> &Vec<String> {
+        &self.1
     }
 }

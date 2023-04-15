@@ -13,4 +13,3 @@ path = "src/lib.rs"
 
 [dependencies]
 tokenizer = { path = "../tokenizer" }
-unicode-segmentation = "^1"
