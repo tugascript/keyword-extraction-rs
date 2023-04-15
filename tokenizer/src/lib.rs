@@ -57,8 +57,8 @@ fn process_word(
 }
 
 impl Tokenizer {
-    pub fn new(text: &str, stopwords: Vec<String>, punctuation: Option<Vec<String>>) -> Tokenizer {
-        Tokenizer {
+    pub fn new(text: &str, stopwords: Vec<String>, punctuation: Option<Vec<String>>) -> Self {
+        Self {
             text: text.to_owned(),
             stopwords: stopwords
                 .iter()

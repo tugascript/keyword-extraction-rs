@@ -98,7 +98,7 @@ fn get_matrix(
 }
 
 impl CoOccurrence {
-    pub fn new(documents: &Vec<String>, words: &Vec<String>, window_size: usize) -> CoOccurrence {
+    pub fn new(documents: &Vec<String>, words: &Vec<String>, window_size: usize) -> Self {
         let words_indexes = create_words_indexes(words);
         let length = words.len();
 

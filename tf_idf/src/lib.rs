@@ -88,7 +88,7 @@ fn l2_normalize(tf_id: HashMap<String, f32>) -> HashMap<String, f32> {
 }
 
 impl TfIdf {
-    pub fn new(documents: &Vec<String>) -> TfIdf {
+    pub fn new(documents: &Vec<String>) -> Self {
         Self(l2_normalize(calculate_tf_idf(
             calculate_tf(generate_word_hashmap(documents)),
             calculate_idf(
