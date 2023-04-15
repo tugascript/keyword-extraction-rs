@@ -72,11 +72,11 @@ impl Tokenizer {
                             ":", ",", "<", "=", ">", "?", "@", "[", "\\", "]", "^", "_", "`", "{", "|",
                             "}", "~", "-",
                         ]
-                            .into_iter()
+                            .iter()
                             .map(|s| s.to_string())
                             .collect::<Vec<String>>()
                     )
-                    .into_iter()
+                    .iter()
                     .map(|s| s.to_string()),
             ),
         }
