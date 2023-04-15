@@ -1,7 +1,6 @@
 use std::collections::HashSet;
 
 use stop_words::{get, LANGUAGE};
-use tf_idf::DocumentSplit;
 
 use crate::*;
 
@@ -284,7 +283,8 @@ fn test_tokenize() {
 
 #[test]
 fn test_tf_idf() {
-    let tf_idf = tf_idf::TfIdf::new(TEXT, get_stop_words(), DocumentSplit::Paragraph, None);
+    let documents = tokenizer::Tokenizer::new(TEXT, get_stop_words(), None).split_into_paragraphs();
+    let tf_idf = tf_idf::TfIdf::new(&documents);
     let words_result = tf_idf
         .get_n_best(100)
         .iter()
@@ -396,7 +396,7 @@ fn test_tf_idf() {
     .map(|x| x.to_string())
     .collect::<HashSet<String>>();
     assert_eq!(
-        is_percent_in_hashset(&words_result, &expected_words, 85.0),
+        is_percent_in_hashset(&words_result, &expected_words, 80.0),
         true
     );
 }

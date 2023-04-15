@@ -12,4 +12,3 @@ name = "tf_idf"
 path = "src/lib.rs"
 
 [dependencies]
-tokenizer = { path = "../tokenizer" }

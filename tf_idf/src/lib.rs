@@ -18,14 +18,7 @@
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 
-use tokenizer::Tokenizer;
-
-pub struct TfIdf(HashMap<String, f32>, Vec<String>);
-
-pub enum DocumentSplit {
-    Paragraph,
-    Sentence,
-}
+pub struct TfIdf(HashMap<String, f32>);
 
 fn generate_word_hashmap(documents: &Vec<String>) -> HashMap<String, f32> {
     documents
@@ -94,29 +87,14 @@ fn l2_normalize(tf_id: HashMap<String, f32>) -> HashMap<String, f32> {
 }
 
 impl TfIdf {
-    pub fn new(
-        text: &str,
-        stopwords: Vec<String>,
-        doc_split: DocumentSplit,
-        punctuation: Option<Vec<String>>,
-    ) -> TfIdf {
-        let documents = match doc_split {
-            DocumentSplit::Paragraph => {
-                Tokenizer::new(text, stopwords, punctuation).split_into_paragraphs()
-            }
-            DocumentSplit::Sentence => {
-                Tokenizer::new(text, stopwords, punctuation).split_into_sentences()
-            }
-        };
-        let tf_idf = calculate_tf_idf(
-            calculate_tf(generate_word_hashmap(&documents)),
+    pub fn new(documents: &Vec<String>) -> TfIdf {
+        Self(l2_normalize(calculate_tf_idf(
+            calculate_tf(generate_word_hashmap(documents)),
             calculate_idf(
                 documents.len() as f32,
-                generate_unique_word_hashmap(&documents),
+                generate_unique_word_hashmap(documents),
             ),
-        );
-
-        Self(l2_normalize(tf_idf), documents)
+        )))
     }
 
     pub fn get_score(&self, word: &str) -> f32 {
@@ -149,9 +127,5 @@ impl TfIdf {
 
         sorted_tfidf.truncate(n);
         sorted_tfidf
-    }
-
-    pub fn get_documents(&self) -> &Vec<String> {
-        &self.1
     }
 }
