@@ -31,7 +31,7 @@ impl CoOccurrence {
             documents: documents.clone(),
             words: HashMap::from_iter(
                 words
-                    .into_iter()
+                    .iter()
                     .enumerate()
                     .map(|(i, w)| (w.to_string(), i)),
             ),
