@@ -15,82 +15,171 @@
 // You should have received a copy of the GNU General Public License
 // along with keyword-extraction.  If not, see <http://www.gnu.org/licenses/>.
 
-
 use std::collections::HashMap;
 
 pub struct CoOccurrence {
-    documents: Vec<String>,
-    words: HashMap<String, usize>,
-    length: usize,
-    window: usize,
+    matrix: Vec<Vec<f32>>,
+    words_indexes: HashMap<String, usize>,
+    indexes_words: HashMap<usize, String>,
 }
 
-impl CoOccurrence {
-    pub fn new(documents: &Vec<String>, words: &Vec<String>, window: usize) -> CoOccurrence {
-        CoOccurrence {
-            documents: documents.clone(),
-            words: HashMap::from_iter(
-                words
-                    .iter()
-                    .enumerate()
-                    .map(|(i, w)| (w.to_string(), i)),
-            ),
-            length: words.len(),
-            window,
-        }
-    }
+fn get_window_range(window_size: usize, index: usize, words_length: usize) -> (usize, usize) {
+    let window_start = if index < window_size {
+        0
+    } else {
+        index - window_size
+    };
+    let window_end = if index + window_size + 1 > words_length {
+        words_length
+    } else {
+        index + window_size + 1
+    };
+    (window_start, window_end)
+}
 
-    pub fn get_matrix(&self) -> Vec<Vec<f64>> {
-        let mut matrix = vec![vec![0.0; self.length]; self.length];
-        let mut max = 0.0;
+fn create_words_indexes(words: &Vec<String>) -> HashMap<String, usize> {
+    words
+        .iter()
+        .enumerate()
+        .map(|(i, w)| (w.to_string(), i))
+        .collect::<HashMap<String, usize>>()
+}
 
-        for document in &self.documents {
-            let document_words: Vec<String> =
-                document.split_whitespace().map(|w| w.to_string()).collect();
+fn create_indexes_words(labels: &HashMap<String, usize>) -> HashMap<usize, String> {
+    labels
+        .iter()
+        .map(|(w, i)| (i.to_owned(), w.to_string()))
+        .collect::<HashMap<usize, String>>()
+}
 
-            for (i, word) in document_words.iter().enumerate() {
-                let first_index = match self.words.get(word) {
+fn get_matrix(
+    documents: &Vec<String>,
+    words_indexes: &HashMap<String, usize>,
+    length: usize,
+    window_size: usize,
+) -> Vec<Vec<f32>> {
+    let mut matrix = vec![vec![0.0_f32; length]; length];
+    let mut max = 0.0_f32;
+
+    for document in documents {
+        let document_words = document
+            .split_whitespace()
+            .map(|w| w.to_string())
+            .collect::<Vec<String>>();
+
+        for (i, word) in document_words.iter().enumerate() {
+            let first_index = match words_indexes.get(word) {
+                Some(w) => w.to_owned(),
+                None => continue,
+            };
+            let (window_start, window_end) = get_window_range(window_size, i, document_words.len());
+
+            for j in window_start..window_end {
+                if i == j {
+                    continue;
+                }
+
+                let other_word = match document_words.get(j) {
+                    Some(w) => w,
+                    None => continue,
+                };
+                let other_index = match words_indexes.get(other_word) {
                     Some(w) => w.to_owned(),
                     None => continue,
                 };
-                let words_length = document_words.len();
-                let window_start = if i < self.window { 0 } else { i - self.window };
-                let window_end = if i + self.window + 1 > words_length {
-                    words_length
-                } else {
-                    i + self.window + 1
-                };
 
-                for j in window_start..window_end {
-                    if i == j {
-                        continue;
-                    }
+                matrix[first_index][other_index] += 1.0;
+                let current = matrix[first_index][other_index];
 
-                    let other_word = match document_words.get(j) {
-                        Some(w) => w,
-                        None => continue,
-                    };
-                    let other_index = match self.words.get(other_word) {
-                        Some(w) => w.to_owned(),
-                        None => continue,
-                    };
-
-                    matrix[first_index][other_index] += 1.0;
-                    let current = matrix[first_index][other_index];
-
-                    if current > max {
-                        max = current;
-                    }
+                if current > max {
+                    max = current;
                 }
             }
         }
+    }
 
-        for i in 0..self.length {
-            for j in 0..self.length {
-                matrix[i][j] /= max;
-            }
+    for i in 0..length {
+        for j in 0..length {
+            matrix[i][j] /= max;
         }
+    }
 
-        matrix
+    matrix
+}
+
+impl CoOccurrence {
+    pub fn new(documents: &Vec<String>, words: &Vec<String>, window_size: usize) -> CoOccurrence {
+        let words_indexes = create_words_indexes(words);
+        let length = words.len();
+
+        Self {
+            matrix: get_matrix(documents, &words_indexes, length, window_size),
+            indexes_words: create_indexes_words(&words_indexes),
+            words_indexes,
+        }
+    }
+
+    pub fn get_label(&self, word: &str) -> Option<usize> {
+        match self.words_indexes.get(word) {
+            Some(w) => Some(w.to_owned()),
+            None => None,
+        }
+    }
+
+    pub fn get_word(&self, label: usize) -> Option<String> {
+        match self.indexes_words.get(&label) {
+            Some(w) => Some(w.to_owned()),
+            None => None,
+        }
+    }
+
+    pub fn get_matrix(&self) -> &Vec<Vec<f32>> {
+        &self.matrix
+    }
+
+    pub fn get_labels(&self) -> &HashMap<String, usize> {
+        &self.words_indexes
+    }
+
+    pub fn get_relations(&self, word: &str) -> Option<Vec<(String, f32)>> {
+        let label = match self.get_label(word) {
+            Some(l) => l,
+            None => return None,
+        };
+        Some(
+            self.matrix[label]
+                .iter()
+                .enumerate()
+                .filter_map(|(i, &v)| {
+                    if v > 0.0 {
+                        if let Some(w) = self.get_word(i) {
+                            return Some((w, v));
+                        }
+                    }
+
+                    None
+                })
+                .collect::<Vec<(String, f32)>>(),
+        )
+    }
+
+    pub fn get_matrix_row(&self, word: &str) -> Option<Vec<f32>> {
+        let label = match self.get_label(word) {
+            Some(l) => l,
+            None => return None,
+        };
+        Some(self.matrix[label].to_owned())
+    }
+
+    pub fn get_relation(&self, word1: &str, word2: &str) -> Option<f32> {
+        let label1 = match self.get_label(word1) {
+            Some(l) => l,
+            None => return None,
+        };
+        let label2 = match self.get_label(word2) {
+            Some(l) => l,
+            None => return None,
+        };
+        Some(self.matrix[label1][label2])
     }
 }
