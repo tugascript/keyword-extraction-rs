@@ -46,13 +46,10 @@ fn process_word(
 ) -> Option<String> {
     let word = special_char_regex.replace_all(w.trim(), "").to_lowercase();
 
-    if word.is_empty() {
-        return None;
-    }
-    if (word.graphemes(true).count() == 1) && punctuation.contains(&word) {
-        return None;
-    }
-    if stopwords.contains(&word) {
+    if word.is_empty()
+        || (word.graphemes(true).count() == 1) && punctuation.contains(&word)
+        || stopwords.contains(&word)
+    {
         return None;
     }
 

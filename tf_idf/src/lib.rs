@@ -50,6 +50,7 @@ fn generate_unique_word_hashmap(documents: &Vec<String>) -> HashMap<String, f32>
 
 fn calculate_tf(tf: HashMap<String, f32>) -> HashMap<String, f32> {
     let total_words = tf.values().sum::<f32>();
+
     tf.iter()
         .map(|(word, count)| (word.to_string(), count / total_words))
         .collect::<HashMap<String, f32>>()
