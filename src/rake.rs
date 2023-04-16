@@ -17,7 +17,7 @@
 
 use std::{cmp::Ordering, collections::HashMap};
 
-use tokenizer::Tokenizer;
+use crate::tokenizer::Tokenizer;
 
 pub struct Rake {
     word_scores: HashMap<String, f32>,

@@ -4,26 +4,16 @@ version = "0.1.0"
 edition = "2021"
 license = "LGPL-3.0-or-later"
 authors = ["Afonso Barracha <barracha.afonso@gmail.com>"]
-publish = false
+publish = true
 
 [lib]
 name = "keyword_extraction"
 path = "src/lib.rs"
 
-[workspace]
-members = [
-    ".",
-    "tokenizer",
-    "tf_idf",
-    "co_occurrence",
-    "rake",
-]
 
 [dependencies]
-tokenizer = { path = "./tokenizer" }
-tf_idf = { path = "./tf_idf" }
-co_occurrence = { path = "./co_occurrence" }
-rake = { path = "./rake" }
+unicode-segmentation = "1.10.1"
+regex = "1.7.3"
 
 [dev-dependencies]
 stop-words = "0.7.1"

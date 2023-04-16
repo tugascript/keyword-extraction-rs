@@ -15,10 +15,10 @@
 // You should have received a copy of the GNU General Public License
 // along with keyword-extraction.  If not, see <http://www.gnu.org/licenses/>.
 
+pub mod co_occurrence;
+pub mod rake;
+pub mod tf_idf;
+pub mod tokenizer;
+
 #[cfg(test)]
 mod tests;
-
-pub use co_occurrence;
-pub use rake;
-pub use tf_idf;
-pub use tokenizer;
