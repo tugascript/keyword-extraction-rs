@@ -397,7 +397,7 @@ fn test_tf_idf() {
     .map(|x| x.to_string())
     .collect::<HashSet<String>>();
     assert_eq!(
-        is_percent_in_hashset(&words_result, &expected_words, 80.0),
+        is_percent_in_hashset(&words_result, &expected_words, 85.0),
         true
     );
 }
@@ -438,4 +438,22 @@ fn test_co_occurrence() {
         co_occurrence.get_matrix_row("dynamic").unwrap(),
         [0.6666667, 0.33333334, 0.6666667, 0.0, 0.33333334, 0.0, 0.33333334, 0.0, 0.0, 0.0]
     );
+}
+
+#[test]
+fn test_rake() {
+    let rake_result = [
+        "core rust applications write clean efficient",
+        "version control systems preferably git strong",
+        "title junior rust developer job description",
+        "provide constructive feedback continuously learn",
+        "motivated junior rust developer",
+        "debugging skills excellent written",
+        "verbal communication skills ability",
+        "technologies requirements bachelor degree",
+        "team oriented environment nice",
+        "rust programming language familiarity",
+    ];
+    let reka_struct = rake::Rake::new(TEXT, &get_stop_words());
+    assert_eq!(reka_struct.get_ranked_phrases(10), rake_result);
 }
