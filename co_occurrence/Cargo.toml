@@ -5,7 +5,7 @@ edition = "2021"
 publish = false
 authors = ["Afonso Barracha <barracha.afonso@gmail.com>"]
 description = "A simple co-occurrence matrix implementation in Rust"
-license = "GPL-3.0-or-later"
+license = "LGPL-3.0-or-later"
 
 [lib]
 name = "co_occurrence"

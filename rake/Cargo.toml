@@ -5,7 +5,7 @@ edition = "2021"
 publish = false
 authors = ["Afonso Barracha <barracha.afonso@gmail.com>"]
 description = "Rust implementation of the RAKE algorithm"
-license = "GPL-3.0-or-later"
+license = "LGPL-3.0-or-later"
 
 [lib]
 name = "rake"
