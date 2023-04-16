@@ -5,6 +5,9 @@ edition = "2021"
 license = "LGPL-3.0-or-later"
 authors = ["Afonso Barracha <barracha.afonso@gmail.com>"]
 publish = true
+description = "Collection of algorithms for keyword extraction from text"
+repository = "https://github.com/tugascript/keyword-extraction-rs"
+homepage = "https://github.com/tugascript/keyword-extraction-rs"
 
 [lib]
 name = "keyword_extraction"
