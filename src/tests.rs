@@ -400,3 +400,40 @@ fn test_tf_idf() {
         true
     );
 }
+
+#[test]
+fn test_co_occurrence() {
+    let documents = tokenizer::Tokenizer::new(TEXT, get_stop_words(), None).split_into_paragraphs();
+    let word_vec = vec![
+        "rust",
+        "development",
+        "environment",
+        "work",
+        "programming",
+        "team",
+        "career",
+        "code",
+        "developer",
+        "dynamic",
+    ]
+    .iter()
+    .map(|x| x.to_string())
+    .collect::<Vec<String>>();
+    let co_occurrence = co_occurrence::CoOccurrence::new(&documents, &word_vec, 10);
+    assert_eq!(
+        co_occurrence.get_matrix_row("rust").unwrap(),
+        [0.6666667, 0.6666667, 0.6666667, 0.0, 1.0, 0.6666667, 0.33333334, 0.0, 1.0, 0.6666667]
+    );
+    assert_eq!(
+        co_occurrence.get_matrix_row("development").unwrap(),
+        [0.6666667, 0.0, 0.33333334, 0.0, 0.0, 0.33333334, 0.33333334, 0.0, 0.0, 0.33333334]
+    );
+    assert_eq!(
+        co_occurrence.get_matrix_row("developer").unwrap(),
+        [1.0, 0.0, 0.0, 0.0, 0.33333334, 0.33333334, 0.0, 0.0, 0.0, 0.0]
+    );
+    assert_eq!(
+        co_occurrence.get_matrix_row("dynamic").unwrap(),
+        [0.6666667, 0.33333334, 0.6666667, 0.0, 0.33333334, 0.0, 0.33333334, 0.0, 0.0, 0.0]
+    );
+}
