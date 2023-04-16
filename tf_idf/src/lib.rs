@@ -99,13 +99,7 @@ impl TfIdf {
     }
 
     pub fn get_score(&self, word: &str) -> f32 {
-        let score = self.0.get(word);
-
-        if let Some(score) = score {
-            *score
-        } else {
-            0.0
-        }
+        *self.0.get(word).unwrap_or(&0.0)
     }
 
     pub fn get_n_best(&self, n: usize) -> Vec<(String, f32)> {
