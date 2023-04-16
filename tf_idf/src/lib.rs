@@ -109,24 +109,12 @@ impl TfIdf {
     }
 
     pub fn get_n_best(&self, n: usize) -> Vec<(String, f32)> {
-        let mut sorted_tfidf: Vec<(String, f32)> = self
-            .0
-            .iter()
-            .map(|(word, score)| (word.to_owned(), *score))
-            .collect();
-        sorted_tfidf.sort_by(|a, b| {
-            if let Some(ordering) = b.1.partial_cmp(&a.1) {
-                return ordering;
-            }
-
-            Ordering::Equal
-        });
-
-        if n == 0 || n >= sorted_tfidf.len() {
-            return sorted_tfidf;
-        }
-
-        sorted_tfidf.truncate(n);
+        let mut sorted_tfidf = self.0.iter().collect::<Vec<(&String, &f32)>>();
+        sorted_tfidf.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(Ordering::Equal));
         sorted_tfidf
+            .iter()
+            .take(n)
+            .map(|(word, score)| (word.to_string(), **score))
+            .collect::<Vec<(String, f32)>>()
     }
 }
