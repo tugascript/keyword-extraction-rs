@@ -15,13 +15,15 @@ members = [
     ".",
     "tokenizer",
     "tf_idf",
-    "co_occurrence"
+    "co_occurrence",
+    "rake",
 ]
 
 [dependencies]
 tokenizer = { path = "./tokenizer" }
 tf_idf = { path = "./tf_idf" }
 co_occurrence = { path = "./co_occurrence" }
+rake = { path = "./rake" }
 
 [dev-dependencies]
 stop-words = "0.7.1"

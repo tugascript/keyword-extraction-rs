@@ -18,6 +18,7 @@
 #[cfg(test)]
 mod tests;
 
-pub use tokenizer;
-pub use tf_idf;
 pub use co_occurrence;
+pub use rake;
+pub use tf_idf;
+pub use tokenizer;
