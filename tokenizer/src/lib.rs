@@ -38,6 +38,10 @@ fn get_newline_regex() -> Regex {
     Regex::new(r"(\r|\n|\r\n)").unwrap()
 }
 
+fn is_punctuation(word: &str, punctuation: &HashSet<String>) -> bool {
+    word.is_empty() || ((word.graphemes(true).count() == 1) && punctuation.contains(word))
+}
+
 fn process_word(
     w: &str,
     special_char_regex: &Regex,
@@ -46,10 +50,7 @@ fn process_word(
 ) -> Option<String> {
     let word = special_char_regex.replace_all(w.trim(), "").to_lowercase();
 
-    if word.is_empty()
-        || (word.graphemes(true).count() == 1) && punctuation.contains(&word)
-        || stopwords.contains(&word)
-    {
+    if is_punctuation(&word, punctuation) || stopwords.contains(&word) {
         return None;
     }
 
@@ -81,6 +82,7 @@ impl Tokenizer {
         }
     }
 
+    /// Split text into words by splitting on word bounds.
     pub fn split_into_words(&self) -> Vec<String> {
         self.text
             .split_word_bounds()
@@ -95,6 +97,7 @@ impl Tokenizer {
             .collect::<Vec<String>>()
     }
 
+    /// Split text into unicode sentences by splitting on punctuation.
     pub fn split_into_sentences(&self) -> Vec<String> {
         let special_char_regex = get_special_char_regex();
         get_sentence_space_regex()
@@ -111,6 +114,41 @@ impl Tokenizer {
             .collect::<Vec<String>>()
     }
 
+    /// Split text into phrases by splitting on stopwords.
+    pub fn split_into_phrases(&self) -> Vec<String> {
+        let special_char_regex = get_special_char_regex();
+        let (mut phrases, last_phrase) = self.text.split_word_bounds().fold(
+            (Vec::<String>::new(), String::new()),
+            |(mut phrases, mut acc), w| {
+                let word = special_char_regex.replace_all(w.trim(), "").to_lowercase();
+
+                if !is_punctuation(&word, &self.punctuation) {
+                    if self.stopwords.contains(&word) {
+                        if !acc.is_empty() {
+                            phrases.push(acc);
+                            acc = String::new();
+                        }
+                    } else {
+                        if !acc.is_empty() {
+                            acc.push(' ');
+                        }
+
+                        acc.push_str(&word);
+                    }
+                }
+
+                (phrases, acc)
+            },
+        );
+
+        if !last_phrase.is_empty() {
+            phrases.push(last_phrase);
+        }
+
+        phrases
+    }
+
+    /// Split text into paragraphs by splitting on newlines.
     pub fn split_into_paragraphs(&self) -> Vec<String> {
         get_newline_regex()
             .split(&self.text)
