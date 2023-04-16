@@ -5,11 +5,25 @@
 This is a simple NLP library with a list of algorithms related to keyword extraction:
 
 - Tokenizer for tokenizing text;
-- TF-IDF for calculating the importance of a word in a document;
+- TF-IDF for calculating the importance of a word in one or more documents;
 - Co-occurrence for calculating relationships between words within a specific window size;
-- RAKE for extracting keywords from a document;
+- RAKE for extracting key phrases from a document;
 
 And more to come! This library is still in development, and is part of a blog series on [dev.to](https://dev.to/tugascript).
+
+## Features
+
+The full list of intended features before publishing this library on crates.io is as follows:
+
+- Helper modules:
+  - [x] Tokenizer
+  - [x] Co-occurrence
+- Keyword extraction algorithms:
+  - [x] TF-IDF (Needs modifications, a.k.a support for single document and non-processed text)
+  - [x] RAKE
+  - [ ] YAKE
+  - [ ] TextRank
+  - [ ] KEA
 
 ## Usage
 
