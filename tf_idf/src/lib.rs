@@ -20,7 +20,7 @@ use std::collections::{HashMap, HashSet};
 
 pub struct TfIdf(HashMap<String, f32>);
 
-fn generate_word_hashmap(documents: &Vec<String>) -> HashMap<String, f32> {
+fn generate_word_hashmap(documents: &[String]) -> HashMap<String, f32> {
     documents
         .iter()
         .flat_map(|document| document.split_whitespace().map(|word| word.to_string()))
@@ -31,7 +31,7 @@ fn generate_word_hashmap(documents: &Vec<String>) -> HashMap<String, f32> {
         })
 }
 
-fn generate_unique_word_hashmap(documents: &Vec<String>) -> HashMap<String, f32> {
+fn generate_unique_word_hashmap(documents: &[String]) -> HashMap<String, f32> {
     documents
         .iter()
         .map(|document| {
@@ -88,7 +88,7 @@ fn l2_normalize(tf_id: HashMap<String, f32>) -> HashMap<String, f32> {
 }
 
 impl TfIdf {
-    pub fn new(documents: &Vec<String>) -> Self {
+    pub fn new(documents: &[String]) -> Self {
         Self(l2_normalize(calculate_tf_idf(
             calculate_tf(generate_word_hashmap(documents)),
             calculate_idf(
@@ -104,7 +104,15 @@ impl TfIdf {
 
     pub fn get_n_best(&self, n: usize) -> Vec<(String, f32)> {
         let mut sorted_tfidf = self.0.iter().collect::<Vec<(&String, &f32)>>();
-        sorted_tfidf.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(Ordering::Equal));
+        sorted_tfidf.sort_by(|a, b| {
+            let order = b.1.partial_cmp(&a.1).unwrap_or(Ordering::Equal);
+
+            if order == Ordering::Equal {
+                return a.0.cmp(&b.0);
+            }
+
+            order
+        });
         sorted_tfidf
             .iter()
             .take(n)
