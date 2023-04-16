@@ -24,9 +24,9 @@ pub struct Rake {
     phrase_scores: HashMap<String, f32>,
 }
 
-fn split_into_phrases(text: &str, stopwords: &Vec<String>) -> Vec<Vec<String>> {
+fn split_into_phrases(text: &str, stopwords: &[String]) -> Vec<Vec<String>> {
     Tokenizer::new(text, stopwords, None)
-        .split_into_sentences()
+        .split_into_phrases()
         .iter()
         .map(|sentence| {
             sentence
@@ -37,7 +37,7 @@ fn split_into_phrases(text: &str, stopwords: &Vec<String>) -> Vec<Vec<String>> {
         .collect::<Vec<Vec<String>>>()
 }
 
-fn generate_word_frequency(phrases: &Vec<Vec<String>>) -> HashMap<String, f32> {
+fn generate_word_frequency(phrases: &[Vec<String>]) -> HashMap<String, f32> {
     phrases
         .iter()
         .flat_map(|phrase| phrase.iter().map(|word| word.to_string()))
@@ -48,17 +48,19 @@ fn generate_word_frequency(phrases: &Vec<Vec<String>>) -> HashMap<String, f32> {
         })
 }
 
-fn generate_word_degree(phrases: &Vec<Vec<String>>) -> HashMap<String, f32> {
+fn generate_word_degree(phrases: &[Vec<String>]) -> HashMap<String, f32> {
     phrases
         .iter()
         .flat_map(|phrase| {
             phrase
                 .iter()
-                .map(|word| (phrase.len() as f32, word.to_string()))
+                .map(|word| (phrase.len() as f32 - 1.0, word.to_string()))
         })
         .fold(HashMap::new(), |mut acc, (len, word)| {
-            let count = acc.entry(word).or_insert(0.0);
-            *count += len - 1.0;
+            acc.entry(word)
+                .and_modify(|count| *count += len)
+                .or_insert(len);
+
             acc
         })
 }
@@ -77,7 +79,7 @@ fn calculate_word_scores(
 }
 
 fn calculate_phrase_scores(
-    phrases: &Vec<Vec<String>>,
+    phrases: &[Vec<String>],
     word_scores: &HashMap<String, f32>,
 ) -> HashMap<String, f32> {
     phrases
@@ -108,7 +110,15 @@ impl Rake {
 
     pub fn get_ranked_keyword(&self, n: usize) -> Vec<String> {
         let mut keywords = self.word_scores.iter().collect::<Vec<(&String, &f32)>>();
-        keywords.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap_or(Ordering::Equal));
+        keywords.sort_by(|a, b| {
+            let order = b.1.partial_cmp(a.1).unwrap_or(Ordering::Equal);
+
+            if order == Ordering::Equal {
+                return a.0.cmp(&b.0);
+            }
+
+            order
+        });
         keywords
             .iter()
             .take(n)
@@ -118,7 +128,15 @@ impl Rake {
 
     pub fn get_ranked_phrases(&self, n: usize) -> Vec<String> {
         let mut phrases = self.phrase_scores.iter().collect::<Vec<(&String, &f32)>>();
-        phrases.sort_by(|a, b| b.1.partial_cmp(a.1).unwrap_or(Ordering::Equal));
+        phrases.sort_by(|a, b| {
+            let order = b.1.partial_cmp(a.1).unwrap_or(Ordering::Equal);
+
+            if order == Ordering::Equal {
+                return a.0.len().cmp(&b.0.len());
+            }
+
+            order
+        });
         phrases
             .iter()
             .take(n)
