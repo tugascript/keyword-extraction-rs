@@ -57,7 +57,7 @@ fn process_word(
 }
 
 impl Tokenizer {
-    pub fn new(text: &str, stopwords: Vec<String>, punctuation: Option<Vec<String>>) -> Self {
+    pub fn new(text: &str, stopwords: &Vec<String>, punctuation: Option<&Vec<String>>) -> Self {
         Self {
             text: text.to_owned(),
             stopwords: stopwords
@@ -66,7 +66,7 @@ impl Tokenizer {
                 .collect::<HashSet<String>>(),
             punctuation: punctuation
                 .unwrap_or(
-                    vec![
+                    &vec![
                         "!", "\"", "#", "$", "%", "&", "'", "(", ")", "*", "+", ",", ";", ".", "/",
                         ":", ",", "<", "=", ">", "?", "@", "[", "\\", "]", "^", "_", "`", "{", "|",
                         "}", "~", "-",

@@ -77,7 +77,7 @@ fn is_percent_in_hashset(vector: &Vec<String>, hashset: &HashSet<String>, percen
 
 #[test]
 fn test_tokenize() {
-    let tokenizer = tokenizer::Tokenizer::new(TEXT, get_stop_words(), None);
+    let tokenizer = tokenizer::Tokenizer::new(TEXT, &get_stop_words(), None);
     let sentence_tokens = tokenizer.split_into_sentences();
     let expected_sentences = vec![
         "title junior rust developer",
@@ -283,7 +283,8 @@ fn test_tokenize() {
 
 #[test]
 fn test_tf_idf() {
-    let documents = tokenizer::Tokenizer::new(TEXT, get_stop_words(), None).split_into_paragraphs();
+    let documents =
+        tokenizer::Tokenizer::new(TEXT, &get_stop_words(), None).split_into_paragraphs();
     let tf_idf = tf_idf::TfIdf::new(&documents);
     let words_result = tf_idf
         .get_n_best(100)
@@ -403,7 +404,8 @@ fn test_tf_idf() {
 
 #[test]
 fn test_co_occurrence() {
-    let documents = tokenizer::Tokenizer::new(TEXT, get_stop_words(), None).split_into_paragraphs();
+    let documents =
+        tokenizer::Tokenizer::new(TEXT, &get_stop_words(), None).split_into_paragraphs();
     let word_vec = vec![
         "rust",
         "development",
