@@ -17,4 +17,4 @@ This library is not yet published on crates.io, so you will have to clone this r
 
 ## License
 
-This project is licensed under the GNU Lesser General Public License v3.0. See the [Copying](COPYING.md) and [Copying Lesses](COPYING.LESSER.md) file for details.
+This project is licensed under the GNU Lesser General Public License v3.0. See the [Copying](COPYING.md) and [Copying Lesses](COPYING.LESSER.md) files for details.
