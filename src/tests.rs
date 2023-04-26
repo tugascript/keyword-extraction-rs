@@ -19,7 +19,7 @@ use stop_words::{get, LANGUAGE};
 
 use crate::*;
 
-const TEXT: &'static str = r#"
+const TEXT: &str = r#"
 Title: Junior Rust Developer
 
 Job Description:
@@ -77,7 +77,7 @@ fn get_stop_words() -> Vec<String> {
         .collect()
 }
 
-fn is_percent_in_hashset(vector: &Vec<String>, hashset: &HashSet<String>, percent: f64) -> bool {
+fn is_percent_in_hashset(vector: &[String], hashset: &HashSet<String>, percent: f64) -> bool {
     let mut count = 0;
 
     for item in vector {
@@ -264,9 +264,9 @@ fn test_tokenize() {
 
     let paragraph_tokens = tokenizer.split_into_paragraphs();
     let expected_paragraphs = vec![
-        "title junior rust developer", 
-        "job description", 
-        "seeking talented motivated junior rust developer growing team ideal candidate passion programming strong foundation rust desire learn grow dynamic environment", 
+        "title junior rust developer",
+        "job description",
+        "seeking talented motivated junior rust developer growing team ideal candidate passion programming strong foundation rust desire learn grow dynamic environment",
         "responsibilities",
         "assist development maintenance core rust applications",
         "write clean efficient documented code",
@@ -288,7 +288,7 @@ fn test_tokenize() {
         "opportunity growth career advancement",
         "supportive collaborative environment",
         "chance cutting edge projects rust",
-        "passionate rust development kickstart career supportive dynamic environment encourage apply"
+        "passionate rust development kickstart career supportive dynamic environment encourage apply",
     ];
 
     assert_eq!(sentence_tokens, expected_sentences);
@@ -411,10 +411,7 @@ fn test_tf_idf() {
     .iter()
     .map(|x| x.to_string())
     .collect::<HashSet<String>>();
-    assert_eq!(
-        is_percent_in_hashset(&words_result, &expected_words, 85.0),
-        true
-    );
+    assert!(is_percent_in_hashset(&words_result, &expected_words, 85.0));
 }
 
 #[test]

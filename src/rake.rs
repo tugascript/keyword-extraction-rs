@@ -93,7 +93,7 @@ fn calculate_phrase_scores(
 }
 
 impl Rake {
-    pub fn new(text: &str, stopwords: &Vec<String>) -> Self {
+    pub fn new(text: &str, stopwords: &[String]) -> Self {
         let phrases = split_into_phrases(text, stopwords);
         let word_scores = calculate_word_scores(
             generate_word_frequency(&phrases),
@@ -112,7 +112,7 @@ impl Rake {
             let order = b.1.partial_cmp(a.1).unwrap_or(Ordering::Equal);
 
             if order == Ordering::Equal {
-                return a.0.cmp(&b.0);
+                return a.0.cmp(b.0);
             }
 
             order

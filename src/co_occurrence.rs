@@ -35,7 +35,7 @@ fn get_window_range(window_size: usize, index: usize, words_length: usize) -> Ra
     window_start..window_end
 }
 
-fn create_words_indexes(words: &Vec<String>) -> HashMap<String, usize> {
+fn create_words_indexes(words: &[String]) -> HashMap<String, usize> {
     words
         .iter()
         .enumerate()
@@ -51,7 +51,7 @@ fn create_indexes_words(labels: &HashMap<String, usize>) -> HashMap<usize, Strin
 }
 
 fn get_matrix(
-    documents: &Vec<String>,
+    documents: &[String],
     words_indexes: &HashMap<String, usize>,
     length: usize,
     window_size: usize,
@@ -96,7 +96,7 @@ fn get_matrix(
 }
 
 impl CoOccurrence {
-    pub fn new(documents: &Vec<String>, words: &Vec<String>, window_size: usize) -> Self {
+    pub fn new(documents: &[String], words: &[String], window_size: usize) -> Self {
         let words_indexes = create_words_indexes(words);
         let length = words.len();
 
@@ -108,17 +108,11 @@ impl CoOccurrence {
     }
 
     pub fn get_label(&self, word: &str) -> Option<usize> {
-        match self.words_indexes.get(word) {
-            Some(w) => Some(w.to_owned()),
-            None => None,
-        }
+        self.words_indexes.get(word).map(|w| w.to_owned())
     }
 
     pub fn get_word(&self, label: usize) -> Option<String> {
-        match self.indexes_words.get(&label) {
-            Some(w) => Some(w.to_owned()),
-            None => None,
-        }
+        self.indexes_words.get(&label).map(|w| w.to_owned())
     }
 
     pub fn get_matrix(&self) -> &Vec<Vec<f32>> {

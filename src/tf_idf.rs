@@ -103,10 +103,10 @@ impl TfIdf {
     pub fn get_n_best(&self, n: usize) -> Vec<(String, f32)> {
         let mut sorted_tfidf = self.0.iter().collect::<Vec<(&String, &f32)>>();
         sorted_tfidf.sort_by(|a, b| {
-            let order = b.1.partial_cmp(&a.1).unwrap_or(Ordering::Equal);
+            let order = b.1.partial_cmp(a.1).unwrap_or(Ordering::Equal);
 
             if order == Ordering::Equal {
-                return a.0.cmp(&b.0);
+                return a.0.cmp(b.0);
             }
 
             order
