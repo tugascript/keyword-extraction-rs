@@ -22,16 +22,8 @@ pub struct CoOccurrence {
 }
 
 fn get_window_range(window_size: usize, index: usize, words_length: usize) -> Range<usize> {
-    let window_start = if index < window_size {
-        0
-    } else {
-        index - window_size
-    };
-    let window_end = if index + window_size + 1 > words_length {
-        words_length
-    } else {
-        index + window_size + 1
-    };
+    let window_start = index.saturating_sub(window_size);
+    let window_end = (index + window_size + 1).min(words_length);
     window_start..window_end
 }
 
