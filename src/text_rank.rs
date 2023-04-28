@@ -130,15 +130,15 @@ impl TextRank {
     pub fn new(
         text: &str,
         stop_words: &[String],
-        window_size: usize,
-        damping: f32,
-        tol: f32,
+        window_size: Option<usize>,
+        damping: Option<f32>,
+        tol: Option<f32>,
     ) -> Self {
         let tokenizer = Tokenizer::new(text, stop_words, None);
         let word_rank = create_word_rank(
-            create_graph(tokenizer.split_into_words(), window_size),
-            damping,
-            tol,
+            create_graph(tokenizer.split_into_words(), window_size.unwrap_or(2)),
+            damping.unwrap_or(0.85),
+            tol.unwrap_or(0.00005),
         );
         let phrase_rank = rank_phrases(tokenizer.split_into_phrases(), &word_rank);
 
