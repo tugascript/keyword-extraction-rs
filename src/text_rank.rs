@@ -156,7 +156,7 @@ impl TextRank {
         *self.phrase_rank.get(phrase).unwrap_or(&0.0)
     }
 
-    pub fn get_n_best_words(&self, n: usize) -> Vec<(String, f32)> {
+    pub fn get_ranked_words(&self, n: usize) -> Vec<String> {
         let mut sorted_words = self.word_rank.iter().collect::<Vec<(&String, &f32)>>();
         sorted_words.sort_by(|a, b| {
             let order = b.1.partial_cmp(a.1).unwrap_or(Ordering::Equal);
@@ -170,11 +170,11 @@ impl TextRank {
         sorted_words
             .iter()
             .take(n)
-            .map(|(word, score)| (word.to_string(), **score))
-            .collect::<Vec<(String, f32)>>()
+            .map(|(word, _)| word.to_string())
+            .collect::<Vec<String>>()
     }
 
-    pub fn get_n_best_phrases(&self, n: usize) -> Vec<(String, f32)> {
+    pub fn get_ranked_phrases(&self, n: usize) -> Vec<String> {
         let mut sorted_phrases = self.phrase_rank.iter().collect::<Vec<(&String, &f32)>>();
         sorted_phrases.sort_by(|a, b| {
             let order = b.1.partial_cmp(a.1).unwrap_or(Ordering::Equal);
@@ -188,7 +188,7 @@ impl TextRank {
         sorted_phrases
             .iter()
             .take(n)
-            .map(|(phrase, score)| (phrase.to_string(), **score))
-            .collect::<Vec<(String, f32)>>()
+            .map(|(phrase, _)| phrase.to_string())
+            .collect::<Vec<String>>()
     }
 }
