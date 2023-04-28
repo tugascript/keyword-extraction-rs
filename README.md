@@ -10,9 +10,6 @@ This is a simple NLP library with a list of algorithms related to keyword extrac
 - RAKE for extracting key phrases from a document;
 - TextRank for extracting keywords and key phrases from a document;
 
-And more to come! This library is still in development, and is part of a blog series
-on [dev.to](https://dev.to/tugascript).
-
 ## Features
 
 The full list of intended features before publishing this library on crates.io is as follows:
@@ -21,12 +18,10 @@ The full list of intended features before publishing this library on crates.io i
     - [x] Tokenizer
     - [x] Co-occurrence
 - Keyword extraction algorithms:
-    - [x] TF-IDF (Needs modifications, a.k.a support for single document and non-processed text)
+    - [x] TF-IDF
     - [x] RAKE
     - [x] TextRank
-    - [ ] KEA
-
-I will remove YAKE from the list, as there is already a very good implementation of it in Rust.
+    - [ ] YAKE
 
 ## Usage
 
