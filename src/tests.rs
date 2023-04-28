@@ -469,3 +469,33 @@ fn test_rake() {
     let reka_struct = rake::Rake::new(TEXT, &get_stop_words());
     assert_eq!(reka_struct.get_ranked_phrases(10), rake_result);
 }
+
+#[test]
+fn test_text_rank() {
+    let expected_words = [
+        "rust",
+        "environment",
+        "development",
+        "team",
+        "programming",
+        "code",
+        "systems",
+        "skills",
+        "experience",
+        "familiarity",
+    ];
+    let text_rank = text_rank::TextRank::new(TEXT, &get_stop_words(), None, None, None);
+    assert_eq!(text_rank.get_ranked_words(10), expected_words);
+    assert!(is_percent_in_hashset(
+        &text_rank
+            .get_ranked_phrases(5)
+            .iter()
+            .flat_map(|phrases| phrases.split_whitespace().map(|w| w.to_string()))
+            .collect::<Vec<String>>(),
+        &expected_words
+            .iter()
+            .map(|x| x.to_string())
+            .collect::<HashSet<String>>(),
+        90.0
+    ));
+}
