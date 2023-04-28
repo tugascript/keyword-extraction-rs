@@ -298,14 +298,12 @@ fn test_tokenize() {
 
 #[test]
 fn test_tf_idf() {
-    let documents =
-        tokenizer::Tokenizer::new(TEXT, &get_stop_words(), None).split_into_paragraphs();
-    let tf_idf = tf_idf::TfIdf::new(&documents);
-    let words_result = tf_idf
-        .get_n_best(100)
-        .iter()
-        .map(|x| x.0.to_string())
-        .collect::<Vec<String>>();
+    let tf_idf = tf_idf::TfIdf::new(tf_idf::TfIdfParams::Text(
+        TEXT,
+        &get_stop_words(),
+        tf_idf::TextSplit::Paragraphs,
+    ));
+    let words_result = tf_idf.get_ranked_words(100);
     let expected_words = vec![
         "rust",
         "development",
@@ -484,7 +482,10 @@ fn test_text_rank() {
         "experience",
         "familiarity",
     ];
-    let text_rank = text_rank::TextRank::new(TEXT, &get_stop_words(), None, None, None);
+    let text_rank = text_rank::TextRank::new(text_rank::TextRankParams::WithDefaults(
+        TEXT,
+        &get_stop_words(),
+    ));
     assert_eq!(text_rank.get_ranked_words(10), expected_words);
     assert!(is_percent_in_hashset(
         &text_rank
