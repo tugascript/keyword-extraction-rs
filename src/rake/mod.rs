@@ -15,97 +15,26 @@
 
 use std::{cmp::Ordering, collections::HashMap};
 
-use crate::tokenizer::Tokenizer;
+mod rake_logic;
+use rake_logic::RakeLogic;
 
 pub struct Rake {
     word_scores: HashMap<String, f32>,
     phrase_scores: HashMap<String, f32>,
 }
 
-fn split_into_phrases(text: &str, stopwords: &[String]) -> Vec<Vec<String>> {
-    Tokenizer::new(text, stopwords, None)
-        .split_into_phrases()
-        .iter()
-        .map(|sentence| {
-            sentence
-                .split_whitespace()
-                .map(|w| w.to_string())
-                .collect::<Vec<String>>()
-        })
-        .collect::<Vec<Vec<String>>>()
-}
-
-fn generate_word_frequency(phrases: &[Vec<String>]) -> HashMap<String, f32> {
-    phrases
-        .iter()
-        .flat_map(|phrase| phrase.iter().map(|word| word.to_string()))
-        .fold(HashMap::new(), |mut acc, word| {
-            let count = acc.entry(word).or_insert(0.0);
-            *count += 1.0;
-            acc
-        })
-}
-
-fn generate_word_degree(phrases: &[Vec<String>]) -> HashMap<String, f32> {
-    phrases
-        .iter()
-        .flat_map(|phrase| {
-            phrase
-                .iter()
-                .map(|word| (phrase.len() as f32 - 1.0, word.to_string()))
-        })
-        .fold(HashMap::new(), |mut acc, (len, word)| {
-            acc.entry(word)
-                .and_modify(|count| *count += len)
-                .or_insert(len);
-
-            acc
-        })
-}
-
-fn calculate_word_scores(
-    word_frequency: HashMap<String, f32>,
-    word_degree: HashMap<String, f32>,
-) -> HashMap<String, f32> {
-    word_frequency
-        .iter()
-        .map(|(word, frequency)| {
-            let degree = word_degree.get(word).unwrap_or(&0.0);
-            (word.to_string(), degree / frequency)
-        })
-        .collect::<HashMap<String, f32>>()
-}
-
-fn calculate_phrase_scores(
-    phrases: &[Vec<String>],
-    word_scores: &HashMap<String, f32>,
-) -> HashMap<String, f32> {
-    phrases
-        .iter()
-        .map(|phrase| {
-            let score = phrase
-                .iter()
-                .map(|word| word_scores.get(word).unwrap_or(&0.0))
-                .sum::<f32>();
-            (phrase.join(" "), score)
-        })
-        .collect::<HashMap<String, f32>>()
-}
-
 impl Rake {
+    /// Create a new Rake instance.
     pub fn new(text: &str, stopwords: &[String]) -> Self {
-        let phrases = split_into_phrases(text, stopwords);
-        let word_scores = calculate_word_scores(
-            generate_word_frequency(&phrases),
-            generate_word_degree(&phrases),
-        );
+        let (word_scores, phrase_scores) = RakeLogic::build_rake(text, stopwords);
 
         Self {
-            phrase_scores: calculate_phrase_scores(&phrases, &word_scores),
+            phrase_scores,
             word_scores,
         }
     }
 
+    /// Gets the top n words with the highest score.
     pub fn get_ranked_keyword(&self, n: usize) -> Vec<String> {
         let mut keywords = self.word_scores.iter().collect::<Vec<(&String, &f32)>>();
         keywords.sort_by(|a, b| {
@@ -124,6 +53,7 @@ impl Rake {
             .collect::<Vec<String>>()
     }
 
+    /// Gets the top n phrases with the highest score.
     pub fn get_ranked_phrases(&self, n: usize) -> Vec<String> {
         let mut phrases = self.phrase_scores.iter().collect::<Vec<(&String, &f32)>>();
         phrases.sort_by(|a, b| {
