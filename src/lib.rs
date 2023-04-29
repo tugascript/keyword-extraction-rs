@@ -15,6 +15,7 @@
 
 pub mod co_occurrence;
 pub mod rake;
+pub mod simplified_yake;
 pub mod text_rank;
 pub mod tf_idf;
 pub mod tokenizer;
