@@ -15,8 +15,8 @@
 
 use super::levenshtein::Levenshtein;
 
-fn generate_ngrams(phrases: &[String], n: usize) -> Vec<String> {
-    phrases
+fn generate_ngrams(sentences: &[String], n: usize) -> Vec<String> {
+    sentences
         .iter()
         .flat_map(|phrase| {
             let words: Vec<&str> = phrase.split_whitespace().collect();
@@ -33,9 +33,9 @@ fn generate_ngrams(phrases: &[String], n: usize) -> Vec<String> {
         .collect::<Vec<String>>()
 }
 
-fn generate_candidates(phrases: &[String], n: usize) -> Vec<String> {
+fn generate_candidates(sentences: &[String], n: usize) -> Vec<String> {
     (1..(n + 1))
-        .flat_map(|n| generate_ngrams(phrases, n))
+        .flat_map(|n| generate_ngrams(sentences, n))
         .collect::<Vec<String>>()
 }
 
@@ -59,9 +59,9 @@ fn remove_similar_candidates(candidates: Vec<String>, threshold: f32) -> Vec<Str
 pub struct CandidateSelection(Vec<String>);
 
 impl CandidateSelection {
-    pub fn new(phrases: &[String], n: usize, threshold: f32) -> Self {
+    pub fn new(sentences: &[String], n: usize, threshold: f32) -> Self {
         Self(remove_similar_candidates(
-            generate_candidates(phrases, n),
+            generate_candidates(sentences, n),
             threshold,
         ))
     }
