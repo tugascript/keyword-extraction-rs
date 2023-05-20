@@ -33,7 +33,7 @@ impl WeightParams {
         }
     }
 
-    pub fn default() -> Self {
+    pub fn main_default() -> Self {
         let base_weight = 1.0_f32;
         Self {
             w_tf: base_weight,
@@ -79,16 +79,23 @@ pub enum YakeParams<'a> {
     All(&'a str, &'a [String], usize, usize, f32, WeightParams),
 }
 
+type Candidate<'a> = &'a str;
+type StopWord<'a> = &'a [String];
+type NgramSize = usize;
+type WindowSize = usize;
+type Threshold = f32;
+type Weights = (f32, f32, f32, f32, f32);
+
 impl<'a> YakeParams<'a> {
     pub fn get_values(
         &self,
     ) -> (
-        &'a str,
-        &'a [String],
-        usize,
-        usize,
-        f32,
-        (f32, f32, f32, f32, f32),
+        Candidate<'a>,
+        StopWord<'a>,
+        NgramSize,
+        WindowSize,
+        Threshold,
+        Weights,
     ) {
         match self {
             YakeParams::WithDefaults(text, stop_words) => (
@@ -97,7 +104,7 @@ impl<'a> YakeParams<'a> {
                 3,
                 3,
                 0.8,
-                WeightParams::default().get_weights(),
+                WeightParams::main_default().get_weights(),
             ),
             YakeParams::BaseParams(text, stop_words, n_gram_size, window_size, threshold) => (
                 text,

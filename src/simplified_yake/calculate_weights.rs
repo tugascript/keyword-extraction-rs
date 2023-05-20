@@ -26,7 +26,7 @@ pub struct WeightedCandidate {
     avg_cooccurrence: f32,
 }
 
-fn generate_count_hashmap<'a>(candidates: &'a [String]) -> HashMap<&'a str, f32> {
+fn generate_count_hashmap(candidates: &[String]) -> HashMap<&str, f32> {
     candidates.iter().fold(HashMap::new(), |mut acc, word| {
         let count = acc.entry(word).or_insert(0.0);
         *count += 1.0;
@@ -74,10 +74,10 @@ fn calculate_plo<'a>(counts: &HashMap<&'a str, f32>) -> HashMap<&'a str, f32> {
         .collect::<HashMap<&'a str, f32>>()
 }
 
-fn calculate_avg_cooccurrence<'a>(
+fn calculate_avg_cooccurrence(
     co_occurrence_matrix: CoOccurrence,
-    candidates: &'a [String],
-) -> HashMap<&'a str, f32> {
+    candidates: &[String],
+) -> HashMap<&str, f32> {
     let mut avg_cooccurrence = HashMap::new();
 
     for candidate in candidates {
