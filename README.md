@@ -21,7 +21,8 @@ The full list of intended features before publishing this library on crates.io i
     - [x] TF-IDF
     - [x] RAKE
     - [x] TextRank
-    - [ ] YAKE (simplified, without case sensitivity and stemming)
+
+Note: I removed yake as my implementation was very slow. I will try to implement it again in the future.
 
 ## Usage
 
