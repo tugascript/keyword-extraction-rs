@@ -2,12 +2,16 @@
 name = "keyword_extraction"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.69.0"
 license = "LGPL-3.0-or-later"
+readme = "README.md"
+keywords = ["nlp", "text extraction", "keyword extraction"]
 authors = ["Afonso Barracha <barracha.afonso@gmail.com>"]
 publish = true
 description = "Collection of algorithms for keyword extraction from text"
 repository = "https://github.com/tugascript/keyword-extraction-rs"
 homepage = "https://github.com/tugascript/keyword-extraction-rs"
+documentation = "https://docs.rs/keyword_extraction"
 
 [lib]
 name = "keyword_extraction"
