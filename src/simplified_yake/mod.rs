@@ -57,10 +57,10 @@ impl SimplifedYake {
     pub fn get_ranked_words(&self, n: usize) -> Vec<String> {
         let mut sorted_yake = self.0.iter().collect::<Vec<(&String, &f32)>>();
         sorted_yake.sort_by(|a, b| {
-            let order = b.1.partial_cmp(a.1).unwrap_or(Ordering::Equal);
+            let order = a.1.partial_cmp(b.1).unwrap_or(Ordering::Equal);
 
             if order == Ordering::Equal {
-                return a.0.cmp(b.0);
+                return b.0.cmp(a.0);
             }
 
             order
