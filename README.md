@@ -26,8 +26,12 @@ Note: I removed yake as my implementation was very slow. I will try to implement
 
 ## Usage
 
-This library is not yet published on crates.io, so you will have to clone this repository and add it as a dependency in
-your `Cargo.toml` file.
+Add this to your `Cargo.toml`:
+
+```toml
+[dependencies]
+keyword-extraction = "1.0.0"
+```
 
 ## License
 
