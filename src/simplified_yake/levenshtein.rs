@@ -56,8 +56,4 @@ impl<'a> Levenshtein<'a> {
         );
         1.0 - (self.2 as f32 / max_len as f32)
     }
-
-    fn distance(&self) -> usize {
-        self.2
-    }
 }

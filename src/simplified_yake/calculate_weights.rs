@@ -113,26 +113,6 @@ impl WeightedCandidate {
     pub fn term(&self) -> String {
         self.term.to_owned()
     }
-
-    pub fn tf(&self) -> f32 {
-        self.tf
-    }
-
-    pub fn c_value(&self) -> f32 {
-        self.c_value
-    }
-
-    pub fn pfo(&self) -> f32 {
-        self.pfo
-    }
-
-    pub fn plo(&self) -> f32 {
-        self.plo
-    }
-
-    pub fn avg_cooccurrence(&self) -> f32 {
-        self.avg_cooccurrence
-    }
 }
 
 pub fn calculate_weights(
