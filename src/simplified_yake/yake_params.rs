@@ -78,3 +78,50 @@ pub enum YakeParams<'a> {
     BaseParams(&'a str, &'a [String], usize, usize, f32),
     All(&'a str, &'a [String], usize, usize, f32, WeightParams),
 }
+
+impl<'a> YakeParams<'a> {
+    pub fn get_values(
+        &self,
+    ) -> (
+        &'a str,
+        &'a [String],
+        usize,
+        usize,
+        f32,
+        (f32, f32, f32, f32, f32),
+    ) {
+        match self {
+            YakeParams::WithDefaults(text, stop_words) => (
+                text,
+                stop_words,
+                3,
+                3,
+                0.8,
+                WeightParams::default().get_weights(),
+            ),
+            YakeParams::BaseParams(text, stop_words, n_gram_size, window_size, threshold) => (
+                text,
+                stop_words,
+                *n_gram_size,
+                *window_size,
+                *threshold,
+                WeightParams::statistical_default().get_weights(),
+            ),
+            YakeParams::All(
+                text,
+                stop_words,
+                n_gram_size,
+                window_size,
+                threshold,
+                weight_params,
+            ) => (
+                text,
+                stop_words,
+                *n_gram_size,
+                *window_size,
+                *threshold,
+                weight_params.get_weights(),
+            ),
+        }
+    }
+}
