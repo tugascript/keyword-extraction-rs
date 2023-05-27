@@ -28,10 +28,10 @@ impl TfIdfLogic {
         ))
     }
 
-    fn generate_word_hashmap(documents: &[String]) -> HashMap<String, f32> {
+    fn generate_word_hashmap(documents: &[String]) -> HashMap<&str, f32> {
         documents
             .iter()
-            .flat_map(|document| document.split_whitespace().map(|word| word.to_string()))
+            .flat_map(|document| document.split_whitespace())
             .fold(HashMap::new(), |mut acc, word| {
                 let count = acc.entry(word).or_insert(0.0);
                 *count += 1.0;
@@ -39,15 +39,10 @@ impl TfIdfLogic {
             })
     }
 
-    fn generate_unique_word_hashmap(documents: &[String]) -> HashMap<String, f32> {
+    fn generate_unique_word_hashmap(documents: &[String]) -> HashMap<&str, f32> {
         documents
             .iter()
-            .map(|document| {
-                document
-                    .split_whitespace()
-                    .map(|s| s.to_owned())
-                    .collect::<HashSet<String>>()
-            })
+            .map(|document| document.split_whitespace().collect::<HashSet<&str>>())
             .flat_map(|unique_words| unique_words.into_iter())
             .fold(HashMap::new(), |mut acc, word| {
                 let count = acc.entry(word).or_insert(0.0);
@@ -56,36 +51,39 @@ impl TfIdfLogic {
             })
     }
 
-    fn calculate_tf(tf: HashMap<String, f32>) -> HashMap<String, f32> {
+    fn calculate_tf<'a>(tf: HashMap<&'a str, f32>) -> HashMap<&'a str, f32> {
         let total_words = tf.values().sum::<f32>();
 
         tf.iter()
-            .map(|(word, count)| (word.to_string(), count / total_words))
-            .collect::<HashMap<String, f32>>()
+            .map(|(word, count)| (*word, count / total_words))
+            .collect::<HashMap<&'a str, f32>>()
     }
 
-    fn calculate_idf(docs_len: f32, word_hashmap: HashMap<String, f32>) -> HashMap<String, f32> {
+    fn calculate_idf<'a>(
+        docs_len: f32,
+        word_hashmap: HashMap<&'a str, f32>,
+    ) -> HashMap<&'a str, f32> {
         let one = 1.0_f32;
 
         word_hashmap
             .iter()
             .map(|(word, count)| {
                 let documents_with_term = (docs_len + one) / (count + one);
-                (word.to_string(), documents_with_term.ln() + one)
+                (*word, documents_with_term.ln() + one)
             })
-            .collect::<HashMap<String, f32>>()
+            .collect::<HashMap<&'a str, f32>>()
     }
 
-    fn calculate_tf_idf(
-        tf: HashMap<String, f32>,
-        idf: HashMap<String, f32>,
-    ) -> HashMap<String, f32> {
+    fn calculate_tf_idf<'a>(
+        tf: HashMap<&'a str, f32>,
+        idf: HashMap<&'a str, f32>,
+    ) -> HashMap<&'a str, f32> {
         tf.iter()
-            .map(|(word, count)| (word.to_string(), count * idf.get(word).unwrap_or(&0.0_f32)))
-            .collect::<HashMap<String, f32>>()
+            .map(|(word, count)| (*word, count * idf.get(word).unwrap_or(&0.0_f32)))
+            .collect::<HashMap<&'a str, f32>>()
     }
 
-    fn l2_normalize(tf_id: HashMap<String, f32>) -> HashMap<String, f32> {
+    fn l2_normalize(tf_id: HashMap<&str, f32>) -> HashMap<String, f32> {
         let l2_norm = tf_id
             .values()
             .map(|value| value * value)
@@ -94,7 +92,7 @@ impl TfIdfLogic {
 
         tf_id
             .iter()
-            .map(|(key, value)| (key.clone(), value / l2_norm))
+            .map(|(key, value)| (key.to_string(), value / l2_norm))
             .collect::<HashMap<String, f32>>()
     }
 }
