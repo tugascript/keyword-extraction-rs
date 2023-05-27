@@ -13,12 +13,5 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with Rust Keyword Extraction. If not, see <http://www.gnu.org/licenses/>.
 
-pub mod co_occurrence;
-mod common;
-pub mod rake;
-pub mod text_rank;
-pub mod tf_idf;
-pub mod tokenizer;
-
-#[cfg(test)]
-mod tests;
+pub type Text<'a> = &'a str;
+pub type Stopwords<'a> = &'a [String];
