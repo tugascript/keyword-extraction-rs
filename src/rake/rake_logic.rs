@@ -15,21 +15,21 @@
 
 pub struct RakeLogic;
 
-use std::collections::HashMap;
-
+use crate::common::{Stopwords, Text};
 use crate::tokenizer::Tokenizer;
+use std::collections::HashMap;
 
 impl RakeLogic {
     pub fn build_rake(
-        text: &str,
-        stopwords: &[String],
+        text: Text,
+        stopwords: Stopwords,
     ) -> (HashMap<String, f32>, HashMap<String, f32>) {
-        let phrases = RakeLogic::split_into_phrases(text, stopwords);
-        let word_scores = RakeLogic::calculate_word_scores(
-            RakeLogic::generate_word_frequency(&phrases),
-            RakeLogic::generate_word_degree(&phrases),
+        let phrases = Self::split_into_phrases(text, stopwords);
+        let word_scores = Self::calculate_word_scores(
+            Self::generate_word_frequency(&phrases),
+            Self::generate_word_degree(&phrases),
         );
-        let phrase_scores = RakeLogic::calculate_phrase_scores(&phrases, &word_scores);
+        let phrase_scores = Self::calculate_phrase_scores(&phrases, &word_scores);
         (word_scores, phrase_scores)
     }
 
@@ -46,10 +46,10 @@ impl RakeLogic {
             .collect::<Vec<Vec<String>>>()
     }
 
-    fn generate_word_frequency(phrases: &[Vec<String>]) -> HashMap<String, f32> {
+    fn generate_word_frequency(phrases: &[Vec<String>]) -> HashMap<&str, f32> {
         phrases
             .iter()
-            .flat_map(|phrase| phrase.iter().map(|word| word.to_string()))
+            .flat_map(|phrase| phrase.iter())
             .fold(HashMap::new(), |mut acc, word| {
                 let count = acc.entry(word).or_insert(0.0);
                 *count += 1.0;
@@ -57,14 +57,10 @@ impl RakeLogic {
             })
     }
 
-    fn generate_word_degree(phrases: &[Vec<String>]) -> HashMap<String, f32> {
+    fn generate_word_degree(phrases: &[Vec<String>]) -> HashMap<&str, f32> {
         phrases
             .iter()
-            .flat_map(|phrase| {
-                phrase
-                    .iter()
-                    .map(|word| (phrase.len() as f32 - 1.0, word.to_string()))
-            })
+            .flat_map(|phrase| phrase.iter().map(|word| (phrase.len() as f32 - 1.0, word)))
             .fold(HashMap::new(), |mut acc, (len, word)| {
                 acc.entry(word)
                     .and_modify(|count| *count += len)
@@ -75,8 +71,8 @@ impl RakeLogic {
     }
 
     fn calculate_word_scores(
-        word_frequency: HashMap<String, f32>,
-        word_degree: HashMap<String, f32>,
+        word_frequency: HashMap<&str, f32>,
+        word_degree: HashMap<&str, f32>,
     ) -> HashMap<String, f32> {
         word_frequency
             .iter()

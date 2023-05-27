@@ -13,10 +13,12 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with Rust Keyword Extraction. If not, see <http://www.gnu.org/licenses/>.
 
-use std::{cmp::Ordering, collections::HashMap};
+use std::collections::HashMap;
 
 mod rake_logic;
 use rake_logic::RakeLogic;
+
+use crate::common::{get_ranked_scores, get_ranked_strings, Stopwords, Text};
 
 pub struct Rake {
     word_scores: HashMap<String, f32>,
@@ -25,7 +27,7 @@ pub struct Rake {
 
 impl Rake {
     /// Create a new Rake instance.
-    pub fn new(text: &str, stopwords: &[String]) -> Self {
+    pub fn new(text: Text, stopwords: Stopwords) -> Self {
         let (word_scores, phrase_scores) = RakeLogic::build_rake(text, stopwords);
 
         Self {
@@ -36,47 +38,41 @@ impl Rake {
 
     /// Gets the top n words with the highest score.
     pub fn get_ranked_keyword(&self, n: usize) -> Vec<String> {
-        let mut keywords = self.word_scores.iter().collect::<Vec<(&String, &f32)>>();
-        keywords.sort_by(|a, b| {
-            let order = b.1.partial_cmp(a.1).unwrap_or(Ordering::Equal);
+        get_ranked_strings(&self.word_scores, n)
+    }
 
-            if order == Ordering::Equal {
-                return a.0.cmp(b.0);
-            }
-
-            order
-        });
-        keywords
-            .iter()
-            .take(n)
-            .map(|(word, _)| word.to_string())
-            .collect::<Vec<String>>()
+    /// Gets the top n words with the highest score and their score.
+    pub fn get_ranked_keyword_scores(&self, n: usize) -> Vec<(String, f32)> {
+        get_ranked_scores(&self.word_scores, n)
     }
 
     /// Gets the top n phrases with the highest score.
     pub fn get_ranked_phrases(&self, n: usize) -> Vec<String> {
-        let mut phrases = self.phrase_scores.iter().collect::<Vec<(&String, &f32)>>();
-        phrases.sort_by(|a, b| {
-            let order = b.1.partial_cmp(a.1).unwrap_or(Ordering::Equal);
-
-            if order == Ordering::Equal {
-                return a.0.len().cmp(&b.0.len());
-            }
-
-            order
-        });
-        phrases
-            .iter()
-            .take(n)
-            .map(|(phrase, _)| phrase.to_string())
-            .collect::<Vec<String>>()
+        get_ranked_strings(&self.phrase_scores, n)
     }
 
+    /// Gets the top n phrases with the highest score and their score.
+    pub fn get_ranked_phares_scores(&self, n: usize) -> Vec<(String, f32)> {
+        get_ranked_scores(&self.phrase_scores, n)
+    }
+
+    /// Gets the score of a word.
     pub fn get_keyword_score(&self, word: &str) -> f32 {
         *self.word_scores.get(word).unwrap_or(&0.0)
     }
 
+    /// Gets the score of a phrase.
     pub fn get_phrase_score(&self, phrase: &str) -> f32 {
         *self.phrase_scores.get(phrase).unwrap_or(&0.0)
+    }
+
+    /// Gets the base hashmap of words and their score.
+    pub fn get_word_scores_map(&self) -> &HashMap<String, f32> {
+        &self.word_scores
+    }
+
+    /// Gets the base hashmap of phrases and their score.
+    pub fn get_phrase_scores_map(&self) -> &HashMap<String, f32> {
+        &self.phrase_scores
     }
 }
