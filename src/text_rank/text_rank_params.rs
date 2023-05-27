@@ -13,9 +13,8 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with Rust Keyword Extraction. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::common::{Stopwords, Text};
+use crate::common::{Stopwords, Text, WindowSize};
 
-type WindowSize = usize;
 type DampingFactor = f32;
 type Tolerance = f32;
 

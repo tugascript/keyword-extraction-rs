@@ -299,7 +299,7 @@ fn test_tokenize() {
 
 #[test]
 fn test_tf_idf() {
-    let tf_idf = tf_idf::TfIdf::new(tf_idf::TfIdfParams::Text(
+    let tf_idf = tf_idf::TfIdf::new(tf_idf::TfIdfParams::TextBlock(
         TEXT,
         &get_stop_words(),
         tf_idf::TextSplit::Paragraphs,
@@ -460,8 +460,8 @@ fn test_rake() {
         "provide constructive feedback continuously learn",
         "motivated junior rust developer",
         "debugging skills excellent written",
-        "verbal communication skills ability",
         "technologies requirements bachelor degree",
+        "verbal communication skills ability",
         "team oriented environment nice",
         "rust programming language familiarity",
     ];

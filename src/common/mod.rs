@@ -13,7 +13,10 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with Rust Keyword Extraction. If not, see <http://www.gnu.org/licenses/>.
 
+pub mod constants;
 pub mod functions;
 pub mod types;
+
+pub use constants::*;
 pub use functions::*;
 pub use types::*;

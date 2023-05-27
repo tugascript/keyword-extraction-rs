@@ -15,6 +15,10 @@
 
 use std::{collections::HashMap, ops::Range};
 
+use crate::common::{Documents, WindowSize};
+
+type Words<'a> = &'a [String];
+
 pub struct CoOccurrence {
     matrix: Vec<Vec<f32>>,
     words_indexes: HashMap<String, usize>,
@@ -88,7 +92,8 @@ fn get_matrix(
 }
 
 impl CoOccurrence {
-    pub fn new(documents: &[String], words: &[String], window_size: usize) -> Self {
+    /// Create a new CoOccurrence instance.
+    pub fn new(documents: Documents, words: Words, window_size: WindowSize) -> Self {
         let words_indexes = create_words_indexes(words);
         let length = words.len();
 
@@ -99,22 +104,27 @@ impl CoOccurrence {
         }
     }
 
+    /// Get the numeric label of a word.
     pub fn get_label(&self, word: &str) -> Option<usize> {
         self.words_indexes.get(word).map(|w| w.to_owned())
     }
 
+    /// Get the word of a numeric label.
     pub fn get_word(&self, label: usize) -> Option<String> {
         self.indexes_words.get(&label).map(|w| w.to_owned())
     }
 
+    /// Get the matrix of the co-occurrence.
     pub fn get_matrix(&self) -> &Vec<Vec<f32>> {
         &self.matrix
     }
 
+    /// Get the labels of the co-occurrence.
     pub fn get_labels(&self) -> &HashMap<String, usize> {
         &self.words_indexes
     }
 
+    /// Get all relations of a given word.
     pub fn get_relations(&self, word: &str) -> Option<Vec<(String, f32)>> {
         let label = match self.get_label(word) {
             Some(l) => l,
@@ -137,6 +147,7 @@ impl CoOccurrence {
         )
     }
 
+    /// Get the row of a given word.
     pub fn get_matrix_row(&self, word: &str) -> Option<Vec<f32>> {
         let label = match self.get_label(word) {
             Some(l) => l,
@@ -145,6 +156,7 @@ impl CoOccurrence {
         Some(self.matrix[label].to_owned())
     }
 
+    /// Get the relation between two words.
     pub fn get_relation(&self, word1: &str, word2: &str) -> Option<f32> {
         let label1 = match self.get_label(word1) {
             Some(l) => l,

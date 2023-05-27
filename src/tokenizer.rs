@@ -18,14 +18,14 @@ use std::collections::HashSet;
 use regex::Regex;
 use unicode_segmentation::UnicodeSegmentation;
 
+use crate::common::{
+    get_special_char_regex, is_punctuation, process_word, Punctuation, Stopwords, Text, PUNCTUATION,
+};
+
 pub struct Tokenizer {
     text: String,
     stopwords: HashSet<String>,
     punctuation: HashSet<String>,
-}
-
-fn get_special_char_regex() -> Regex {
-    Regex::new(r"('s|,|\.)").unwrap()
 }
 
 fn get_sentence_space_regex() -> Regex {
@@ -36,27 +36,9 @@ fn get_newline_regex() -> Regex {
     Regex::new(r"(\r|\n|\r\n)").unwrap()
 }
 
-fn is_punctuation(word: &str, punctuation: &HashSet<String>) -> bool {
-    word.is_empty() || ((word.graphemes(true).count() == 1) && punctuation.contains(word))
-}
-
-fn process_word(
-    w: &str,
-    special_char_regex: &Regex,
-    stopwords: &HashSet<String>,
-    punctuation: &HashSet<String>,
-) -> Option<String> {
-    let word = special_char_regex.replace_all(w.trim(), "").to_lowercase();
-
-    if is_punctuation(&word, punctuation) || stopwords.contains(&word) {
-        return None;
-    }
-
-    Some(word)
-}
-
 impl Tokenizer {
-    pub fn new(text: &str, stopwords: &[String], punctuation: Option<&[String]>) -> Self {
+    /// Create a new Tokenizer instance.
+    pub fn new(text: Text, stopwords: Stopwords, punctuation: Punctuation) -> Self {
         Self {
             text: text.to_owned(),
             stopwords: stopwords
@@ -65,14 +47,10 @@ impl Tokenizer {
                 .collect::<HashSet<String>>(),
             punctuation: punctuation
                 .unwrap_or(
-                    &[
-                        "!", "\"", "#", "$", "%", "&", "'", "(", ")", "*", "+", ",", ";", ".", "/",
-                        ":", ",", "<", "=", ">", "?", "@", "[", "\\", "]", "^", "_", "`", "{", "|",
-                        "}", "~", "-",
-                    ]
-                    .iter()
-                    .map(|s| s.to_string())
-                    .collect::<Vec<String>>(),
+                    &PUNCTUATION
+                        .iter()
+                        .map(|s| s.to_string())
+                        .collect::<Vec<String>>(),
                 )
                 .iter()
                 .map(|s| s.to_string())
@@ -148,6 +126,7 @@ impl Tokenizer {
 
     /// Split text into paragraphs by splitting on newlines.
     pub fn split_into_paragraphs(&self) -> Vec<String> {
+        let special_char_regex = get_special_char_regex();
         get_newline_regex()
             .split(&self.text)
             .filter_map(|s| {
@@ -162,7 +141,7 @@ impl Tokenizer {
                                 .filter_map(|w| {
                                     process_word(
                                         w,
-                                        &get_special_char_regex(),
+                                        &special_char_regex,
                                         &self.stopwords,
                                         &self.punctuation,
                                     )

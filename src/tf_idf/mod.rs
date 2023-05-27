@@ -16,6 +16,7 @@
 use std::cmp::Ordering;
 use std::collections::HashMap;
 
+mod document_processor;
 mod tf_idf_logic;
 pub mod tf_idf_params;
 use tf_idf_logic::TfIdfLogic;

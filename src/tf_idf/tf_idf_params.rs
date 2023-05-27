@@ -13,7 +13,12 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with Rust Keyword Extraction. If not, see <http://www.gnu.org/licenses/>.
 
-use crate::tokenizer::Tokenizer;
+use crate::{
+    common::{Documents, Punctuation, Stopwords, Text},
+    tokenizer::Tokenizer,
+};
+
+use super::document_processor::DocumentProcessor;
 
 /// The options to split the text into documents.
 pub enum TextSplit {
@@ -25,21 +30,29 @@ pub enum TextSplit {
 /// The parameters to be used in the Tf-Idf algorithm.
 pub enum TfIdfParams<'a> {
     /// ### Arguments
+    /// 1. `documents` - The documents to be analyzed.
+    /// 2. `stop_words` - A list of stop words.
+    /// 3. `punctuation` - A list of punctuation.
+    UnprocessedDocuments(Documents<'a>, Stopwords<'a>, Punctuation<'a>),
+    /// ### Arguments
     /// 1. `documents` - The pre-processed documents to be analyzed.
-    Documents(&'a [String]),
+    ProcessedDocuments(Documents<'a>),
     /// ### Arguments
     /// 1. `text` - The text to be analyzed.
     /// 2. `stop_words` - A list of stop words.
     /// 3. `split` - The option to split the text into documents.
-    Text(&'a str, &'a [String], TextSplit),
+    TextBlock(Text<'a>, Stopwords<'a>, TextSplit),
 }
 
 impl<'a> TfIdfParams<'a> {
     /// Returns the documents to be analyzed.
     pub fn get_documents(&self) -> Vec<String> {
         match self {
-            TfIdfParams::Documents(documents) => documents.to_vec(),
-            TfIdfParams::Text(text, stop_words, split) => {
+            TfIdfParams::UnprocessedDocuments(documents, stopwords, punctuatuion) => {
+                DocumentProcessor::new(documents, stopwords, punctuatuion).process_documents()
+            }
+            TfIdfParams::ProcessedDocuments(documents) => documents.to_vec(),
+            TfIdfParams::TextBlock(text, stop_words, split) => {
                 let tokenizer = Tokenizer::new(text, stop_words, None);
                 match split {
                     TextSplit::Sentences => tokenizer.split_into_sentences(),

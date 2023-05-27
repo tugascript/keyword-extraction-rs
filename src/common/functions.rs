@@ -15,8 +15,11 @@
 
 use std::{
     cmp::Ordering,
-    collections::{hash_map::RandomState, HashMap},
+    collections::{hash_map::RandomState, HashMap, HashSet},
 };
+
+use regex::Regex;
+use unicode_segmentation::UnicodeSegmentation;
 
 fn sort_ranked_map<'a>(map: &'a HashMap<String, f32, RandomState>) -> Vec<(&'a String, &'a f32)> {
     let mut map_values = map.iter().collect::<Vec<(&'a String, &'a f32)>>();
@@ -46,4 +49,27 @@ pub fn get_ranked_scores(map: &HashMap<String, f32, RandomState>, n: usize) -> V
         .take(n)
         .map(|(w, v)| (w.to_string(), **v))
         .collect::<Vec<(String, f32)>>()
+}
+
+pub fn get_special_char_regex() -> Regex {
+    Regex::new(r"('s|,|\.)").unwrap()
+}
+
+pub fn is_punctuation(word: &str, punctuation: &HashSet<String>) -> bool {
+    word.is_empty() || ((word.graphemes(true).count() == 1) && punctuation.contains(word))
+}
+
+pub fn process_word(
+    w: &str,
+    special_char_regex: &Regex,
+    stopwords: &HashSet<String>,
+    punctuation: &HashSet<String>,
+) -> Option<String> {
+    let word = special_char_regex.replace_all(w.trim(), "").to_lowercase();
+
+    if word.is_empty() || is_punctuation(&word, punctuation) || stopwords.contains(&word) {
+        return None;
+    }
+
+    Some(word)
 }

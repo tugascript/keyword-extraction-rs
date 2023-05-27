@@ -19,11 +19,11 @@ pub struct TfIdfLogic;
 
 impl TfIdfLogic {
     pub fn build_tfidf(documents: &[String]) -> HashMap<String, f32> {
-        TfIdfLogic::l2_normalize(TfIdfLogic::calculate_tf_idf(
-            TfIdfLogic::calculate_tf(TfIdfLogic::generate_word_hashmap(documents)),
-            TfIdfLogic::calculate_idf(
+        Self::l2_normalize(Self::calculate_tf_idf(
+            Self::calculate_tf(Self::generate_word_hashmap(documents)),
+            Self::calculate_idf(
                 documents.len() as f32,
-                TfIdfLogic::generate_unique_word_hashmap(documents),
+                Self::generate_unique_word_hashmap(documents),
             ),
         ))
     }

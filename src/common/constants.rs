@@ -13,8 +13,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with Rust Keyword Extraction. If not, see <http://www.gnu.org/licenses/>.
 
-pub type Text<'a> = &'a str;
-pub type Stopwords<'a> = &'a [String];
-pub type Punctuation<'a> = Option<&'a [String]>;
-pub type Documents<'a> = &'a [String];
-pub type WindowSize = usize;
+pub const PUNCTUATION: [&str; 33] = [
+    "!", "\"", "#", "$", "%", "&", "'", "(", ")", "*", "+", ",", ";", ".", "/", ":", ",", "<", "=",
+    ">", "?", "@", "[", "\\", "]", "^", "_", "`", "{", "|", "}", "~", "-",
+];
