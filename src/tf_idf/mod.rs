@@ -13,7 +13,6 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with Rust Keyword Extraction. If not, see <http://www.gnu.org/licenses/>.
 
-use std::cmp::Ordering;
 use std::collections::HashMap;
 
 mod document_processor;
@@ -21,6 +20,8 @@ mod tf_idf_logic;
 pub mod tf_idf_params;
 use tf_idf_logic::TfIdfLogic;
 pub use tf_idf_params::{TextSplit, TfIdfParams};
+
+use crate::common::{get_ranked_scores, get_ranked_strings};
 
 pub struct TfIdf(HashMap<String, f32>);
 
@@ -38,20 +39,16 @@ impl TfIdf {
 
     /// Gets the top n words with the highest score.
     pub fn get_ranked_words(&self, n: usize) -> Vec<String> {
-        let mut sorted_tfidf = self.0.iter().collect::<Vec<(&String, &f32)>>();
-        sorted_tfidf.sort_by(|a, b| {
-            let order = b.1.partial_cmp(a.1).unwrap_or(Ordering::Equal);
+        get_ranked_strings(&self.0, n)
+    }
 
-            if order == Ordering::Equal {
-                return a.0.cmp(b.0);
-            }
+    /// Gets the top n words with the highest score.
+    pub fn get_ranked_word_scores(&self, n: usize) -> Vec<(String, f32)> {
+        get_ranked_scores(&self.0, n)
+    }
 
-            order
-        });
-        sorted_tfidf
-            .iter()
-            .take(n)
-            .map(|(word, _)| word.to_string())
-            .collect::<Vec<String>>()
+    /// Gets the word scores map.
+    pub fn get_word_scores_map(&self) -> &HashMap<String, f32> {
+        &self.0
     }
 }
