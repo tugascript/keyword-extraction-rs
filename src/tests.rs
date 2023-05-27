@@ -68,8 +68,9 @@ fn get_stop_words() -> Vec<String> {
     get(LANGUAGE::English)
         .iter()
         .filter_map(|w| {
-            if !cs_hashset.contains(w) {
-                Some(w.to_string())
+            let word = w.replace("\"", "");
+            if !cs_hashset.contains(&word) {
+                Some(word)
             } else {
                 None
             }
