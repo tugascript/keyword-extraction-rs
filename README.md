@@ -30,7 +30,13 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-keyword-extraction = "1.0.0"
+keyword-extraction = "1.1.0"
+```
+
+Or use cargo add:
+
+```bash
+$ cargo add keyword-extraction
 ```
 
 ## License
