@@ -13,14 +13,17 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with Rust Keyword Extraction. If not, see <http://www.gnu.org/licenses/>.
 
-use std::{cmp::Ordering, collections::HashMap};
+use std::collections::HashMap;
 
 mod text_rank_logic;
 pub mod text_rank_params;
 use text_rank_logic::TextRankLogic;
 pub use text_rank_params::TextRankParams;
 
-use crate::tokenizer::Tokenizer;
+use crate::{
+    common::{get_ranked_scores, get_ranked_strings},
+    tokenizer::Tokenizer,
+};
 
 pub struct TextRank {
     word_rank: HashMap<String, f32>,
@@ -28,6 +31,7 @@ pub struct TextRank {
 }
 
 impl TextRank {
+    /// Create a new TextRank instance.
     pub fn new(params: TextRankParams) -> Self {
         let (text, stop_words, window_size, damping, tol) = params.get_params();
         let tokenizer = Tokenizer::new(text, stop_words, None);
@@ -45,47 +49,43 @@ impl TextRank {
         }
     }
 
+    /// Gets the score of a word.
     pub fn get_word_score(&self, word: &str) -> f32 {
         *self.word_rank.get(word).unwrap_or(&0.0)
     }
 
+    /// Gets the score of a phrase.
     pub fn get_phrase_score(&self, phrase: &str) -> f32 {
         *self.phrase_rank.get(phrase).unwrap_or(&0.0)
     }
 
+    /// Gets the top n words with the highest score.
     pub fn get_ranked_words(&self, n: usize) -> Vec<String> {
-        let mut sorted_words = self.word_rank.iter().collect::<Vec<(&String, &f32)>>();
-        sorted_words.sort_by(|a, b| {
-            let order = b.1.partial_cmp(a.1).unwrap_or(Ordering::Equal);
-
-            if order == Ordering::Equal {
-                return a.0.cmp(b.0);
-            }
-
-            order
-        });
-        sorted_words
-            .iter()
-            .take(n)
-            .map(|(word, _)| word.to_string())
-            .collect::<Vec<String>>()
+        get_ranked_strings(&self.word_rank, n)
     }
 
+    /// Get the top n words with the highest score and their score.
+    pub fn get_ranked_word_scores(&self, n: usize) -> Vec<(String, f32)> {
+        get_ranked_scores(&self.word_rank, n)
+    }
+
+    /// Gets the top n phrases with the highest score.
     pub fn get_ranked_phrases(&self, n: usize) -> Vec<String> {
-        let mut sorted_phrases = self.phrase_rank.iter().collect::<Vec<(&String, &f32)>>();
-        sorted_phrases.sort_by(|a, b| {
-            let order = b.1.partial_cmp(a.1).unwrap_or(Ordering::Equal);
+        get_ranked_strings(&self.phrase_rank, n)
+    }
 
-            if order == Ordering::Equal {
-                return a.0.cmp(b.0);
-            }
+    /// Get the top n phrases with the highest score and their score.
+    pub fn get_ranked_phrase_scores(&self, n: usize) -> Vec<(String, f32)> {
+        get_ranked_scores(&self.phrase_rank, n)
+    }
 
-            order
-        });
-        sorted_phrases
-            .iter()
-            .take(n)
-            .map(|(phrase, _)| phrase.to_string())
-            .collect::<Vec<String>>()
+    /// Gets the word scores map.
+    pub fn get_word_scores_map(&self) -> &HashMap<String, f32> {
+        &self.word_rank
+    }
+
+    /// Gets the phrase scores map.
+    pub fn get_phrase_scores_map(&self) -> &HashMap<String, f32> {
+        &self.phrase_rank
     }
 }

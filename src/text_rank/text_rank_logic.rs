@@ -25,12 +25,9 @@ impl TextRankLogic {
         damping: f32,
         tol: f32,
     ) -> (HashMap<String, f32>, HashMap<String, f32>) {
-        let word_rank = TextRankLogic::create_word_rank(
-            TextRankLogic::create_graph(words, window_size),
-            damping,
-            tol,
-        );
-        let phrase_rank = TextRankLogic::rank_phrases(phrases, &word_rank);
+        let word_rank =
+            Self::create_word_rank(Self::create_graph(words, window_size), damping, tol);
+        let phrase_rank = Self::rank_phrases(phrases, &word_rank);
         (word_rank, phrase_rank)
     }
 
