@@ -17,6 +17,9 @@ use std::collections::HashSet;
 
 use regex::Regex;
 
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
+
 use crate::common::{get_special_char_regex, process_word, PUNCTUATION};
 
 pub struct DocumentProcessor<'a> {
@@ -60,9 +63,27 @@ impl<'a> DocumentProcessor<'a> {
 
     pub fn process_documents(&self) -> Vec<String> {
         let special_char_regex = get_special_char_regex();
+
+        #[cfg(feature = "parallel")]
+        return self.parallel_process_documents(&special_char_regex);
+
+        #[cfg(not(feature = "parallel"))]
+        self.basic_process_documents(&special_char_regex)
+    }
+
+    #[cfg(not(feature = "parallel"))]
+    fn basic_process_documents(&self, special_char_regex: &Regex) -> Vec<String> {
         self.documents
             .iter()
-            .map(|doc| self.process_document(doc, &special_char_regex))
+            .map(|doc| self.process_document(doc, special_char_regex))
+            .collect::<Vec<String>>()
+    }
+
+    #[cfg(feature = "parallel")]
+    fn parallel_process_documents(&self, special_char_regex: &Regex) -> Vec<String> {
+        self.documents
+            .par_iter()
+            .map(|doc| self.process_document(doc, special_char_regex))
             .collect::<Vec<String>>()
     }
 }
