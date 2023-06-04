@@ -15,6 +15,9 @@
 
 use std::{collections::HashMap, ops::Range};
 
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
+
 use crate::common::{Documents, WindowSize};
 
 type Words<'a> = &'a [String];
@@ -32,6 +35,14 @@ fn get_window_range(window_size: usize, index: usize, words_length: usize) -> Ra
 }
 
 fn create_words_indexes(words: &[String]) -> HashMap<String, usize> {
+    #[cfg(feature = "parallel")]
+    return words
+        .par_iter()
+        .enumerate()
+        .map(|(i, w)| (w.to_string(), i))
+        .collect::<HashMap<String, usize>>();
+
+    #[cfg(not(feature = "parallel"))]
     words
         .iter()
         .enumerate()
@@ -40,6 +51,13 @@ fn create_words_indexes(words: &[String]) -> HashMap<String, usize> {
 }
 
 fn create_indexes_words(labels: &HashMap<String, usize>) -> HashMap<usize, String> {
+    #[cfg(feature = "parallel")]
+    return labels
+        .par_iter()
+        .map(|(w, i)| (i.to_owned(), w.to_string()))
+        .collect::<HashMap<usize, String>>();
+
+    #[cfg(not(feature = "parallel"))]
     labels
         .iter()
         .map(|(w, i)| (i.to_owned(), w.to_string()))
@@ -84,10 +102,18 @@ fn get_matrix(
             });
     });
 
+    #[cfg(feature = "parallel")]
+    matrix
+        .par_iter_mut()
+        .flat_map(|row| row.par_iter_mut())
+        .for_each(|value| *value /= max);
+
+    #[cfg(not(feature = "parallel"))]
     matrix
         .iter_mut()
         .flat_map(|row| row.iter_mut())
         .for_each(|value| *value /= max);
+
     matrix
 }
 
@@ -124,12 +150,32 @@ impl CoOccurrence {
         &self.words_indexes
     }
 
+    // TODO: remove duplicate code
     /// Get all relations of a given word.
     pub fn get_relations(&self, word: &str) -> Option<Vec<(String, f32)>> {
         let label = match self.get_label(word) {
             Some(l) => l,
             None => return None,
         };
+
+        #[cfg(feature = "parallel")]
+        return Some(
+            self.matrix[label]
+                .par_iter()
+                .enumerate()
+                .filter_map(|(i, &v)| {
+                    if v > 0.0 {
+                        if let Some(w) = self.get_word(i) {
+                            return Some((w, v));
+                        }
+                    }
+
+                    None
+                })
+                .collect::<Vec<(String, f32)>>(),
+        );
+
+        #[cfg(not(feature = "parallel"))]
         Some(
             self.matrix[label]
                 .iter()
