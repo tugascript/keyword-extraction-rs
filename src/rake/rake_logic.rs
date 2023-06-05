@@ -15,10 +15,14 @@
 
 pub struct RakeLogic;
 
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
+
 use crate::common::{Stopwords, Text};
 use crate::tokenizer::Tokenizer;
 use std::collections::HashMap;
 
+// TODO: remove duplicated code
 impl RakeLogic {
     pub fn build_rake(
         text: Text,
@@ -34,8 +38,21 @@ impl RakeLogic {
     }
 
     fn split_into_phrases(text: &str, stopwords: &[String]) -> Vec<Vec<String>> {
-        Tokenizer::new(text, stopwords, None)
-            .split_into_phrases()
+        let phrases = Tokenizer::new(text, stopwords, None).split_into_phrases();
+
+        #[cfg(feature = "parallel")]
+        return phrases
+            .par_iter()
+            .map(|sentence| {
+                sentence
+                    .split_whitespace()
+                    .map(|w| w.to_string())
+                    .collect::<Vec<String>>()
+            })
+            .collect::<Vec<Vec<String>>>();
+
+        #[cfg(not(feature = "parallel"))]
+        phrases
             .iter()
             .map(|sentence| {
                 sentence
@@ -47,6 +64,29 @@ impl RakeLogic {
     }
 
     fn generate_word_frequency(phrases: &[Vec<String>]) -> HashMap<&str, f32> {
+        #[cfg(feature = "parallel")]
+        return phrases
+            .par_iter()
+            .fold(
+                || HashMap::<&str, f32>::new(),
+                |mut acc, phrase| {
+                    phrase.iter().for_each(|word| {
+                        *acc.entry(word).or_insert(0.0) += 1.0;
+                    });
+                    acc
+                },
+            )
+            .reduce(
+                || HashMap::<&str, f32>::new(),
+                |mut acc, hmap| {
+                    hmap.iter().for_each(|(word, count)| {
+                        *acc.entry(word).or_insert(0.0) += count;
+                    });
+                    acc
+                },
+            );
+
+        #[cfg(not(feature = "parallel"))]
         phrases
             .iter()
             .flat_map(|phrase| phrase.iter())
@@ -58,6 +98,32 @@ impl RakeLogic {
     }
 
     fn generate_word_degree(phrases: &[Vec<String>]) -> HashMap<&str, f32> {
+        #[cfg(feature = "parallel")]
+        return phrases
+            .par_iter()
+            .fold(
+                || HashMap::<&str, f32>::new(),
+                |mut acc, phrase| {
+                    let len = phrase.len() as f32 - 1.0;
+                    phrase.iter().for_each(|word| {
+                        acc.entry(word)
+                            .and_modify(|count| *count += len)
+                            .or_insert(len);
+                    });
+                    acc
+                },
+            )
+            .reduce(
+                || HashMap::<&str, f32>::new(),
+                |mut acc, hmap| {
+                    hmap.iter().for_each(|(word, degree)| {
+                        *acc.entry(word).or_insert(0.0) += degree;
+                    });
+                    acc
+                },
+            );
+
+        #[cfg(not(feature = "parallel"))]
         phrases
             .iter()
             .flat_map(|phrase| phrase.iter().map(|word| (phrase.len() as f32 - 1.0, word)))
@@ -74,6 +140,16 @@ impl RakeLogic {
         word_frequency: HashMap<&str, f32>,
         word_degree: HashMap<&str, f32>,
     ) -> HashMap<String, f32> {
+        #[cfg(feature = "parallel")]
+        return word_frequency
+            .par_iter()
+            .map(|(word, frequency)| {
+                let degree = word_degree.get(word).unwrap_or(&0.0);
+                (word.to_string(), degree / frequency)
+            })
+            .collect::<HashMap<String, f32>>();
+
+        #[cfg(not(feature = "parallel"))]
         word_frequency
             .iter()
             .map(|(word, frequency)| {
@@ -87,6 +163,19 @@ impl RakeLogic {
         phrases: &[Vec<String>],
         word_scores: &HashMap<String, f32>,
     ) -> HashMap<String, f32> {
+        #[cfg(feature = "parallel")]
+        return phrases
+            .par_iter()
+            .map(|phrase| {
+                let score = phrase
+                    .iter()
+                    .map(|word| word_scores.get(word).unwrap_or(&0.0))
+                    .sum::<f32>();
+                (phrase.join(" "), score)
+            })
+            .collect::<HashMap<String, f32>>();
+
+        #[cfg(not(feature = "parallel"))]
         phrases
             .iter()
             .map(|phrase| {
