@@ -18,10 +18,14 @@ use std::{
     collections::{hash_map::RandomState, HashMap, HashSet},
 };
 
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
+
 use regex::Regex;
 use unicode_segmentation::UnicodeSegmentation;
 
-fn sort_ranked_map<'a>(map: &'a HashMap<String, f32, RandomState>) -> Vec<(&'a String, &'a f32)> {
+#[cfg(not(feature = "parallel"))]
+fn basic_sort<'a>(map: &'a HashMap<String, f32, RandomState>) -> Vec<(&'a String, &'a f32)> {
     let mut map_values = map.iter().collect::<Vec<(&'a String, &'a f32)>>();
     map_values.sort_by(|a, b| {
         let order = b.1.partial_cmp(a.1).unwrap_or(Ordering::Equal);
@@ -35,7 +39,38 @@ fn sort_ranked_map<'a>(map: &'a HashMap<String, f32, RandomState>) -> Vec<(&'a S
     map_values
 }
 
+#[cfg(feature = "parallel")]
+fn parallel_sort<'a>(map: &'a HashMap<String, f32, RandomState>) -> Vec<(&'a String, &'a f32)> {
+    let mut map_values = map.par_iter().collect::<Vec<(&'a String, &'a f32)>>();
+    map_values.par_sort_by(|a, b| {
+        let order = b.1.partial_cmp(a.1).unwrap_or(Ordering::Equal);
+
+        if order == Ordering::Equal {
+            return a.0.cmp(b.0);
+        }
+
+        order
+    });
+    map_values
+}
+
+fn sort_ranked_map<'a>(map: &'a HashMap<String, f32, RandomState>) -> Vec<(&'a String, &'a f32)> {
+    #[cfg(feature = "parallel")]
+    return parallel_sort(map);
+
+    #[cfg(not(feature = "parallel"))]
+    basic_sort(map)
+}
+
 pub fn get_ranked_strings(map: &HashMap<String, f32, RandomState>, n: usize) -> Vec<String> {
+    #[cfg(feature = "parallel")]
+    return sort_ranked_map(map)
+        .par_iter()
+        .take(n)
+        .map(|(word, _)| word.to_string())
+        .collect::<Vec<String>>();
+
+    #[cfg(not(feature = "parallel"))]
     sort_ranked_map(map)
         .iter()
         .take(n)
@@ -44,6 +79,14 @@ pub fn get_ranked_strings(map: &HashMap<String, f32, RandomState>, n: usize) -> 
 }
 
 pub fn get_ranked_scores(map: &HashMap<String, f32, RandomState>, n: usize) -> Vec<(String, f32)> {
+    #[cfg(feature = "parallel")]
+    return sort_ranked_map(map)
+        .par_iter()
+        .take(n)
+        .map(|(w, v)| (w.to_string(), **v))
+        .collect::<Vec<(String, f32)>>();
+
+    #[cfg(not(feature = "parallel"))]
     sort_ranked_map(map)
         .iter()
         .take(n)
