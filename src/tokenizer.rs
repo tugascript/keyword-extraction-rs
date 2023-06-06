@@ -18,6 +18,9 @@ use std::collections::HashSet;
 use regex::Regex;
 use unicode_segmentation::UnicodeSegmentation;
 
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
+
 use crate::common::{
     get_special_char_regex, is_punctuation, process_word, Punctuation, Stopwords, Text, PUNCTUATION,
 };
@@ -28,12 +31,63 @@ pub struct Tokenizer {
     punctuation: HashSet<String>,
 }
 
+#[cfg(feature = "parallel")]
 fn get_sentence_space_regex() -> Regex {
     Regex::new(r"^([\.!?])[\n\t\r]").unwrap()
 }
 
-fn get_newline_regex() -> Regex {
-    Regex::new(r"(\r|\n|\r\n)").unwrap()
+fn create_phrase(
+    mut phrases: Vec<String>,
+    mut phrase: String,
+    base_word: &str,
+    special_char_regex: &Regex,
+    punctuation: &HashSet<String>,
+    stopwords: &HashSet<String>,
+) -> (Vec<String>, String) {
+    let word = special_char_regex
+        .replace_all(base_word.trim(), "")
+        .to_lowercase();
+
+    if !is_punctuation(&word, punctuation) {
+        if stopwords.contains(&word) {
+            if !phrase.is_empty() {
+                phrases.push(phrase);
+                phrase = String::new();
+            }
+        } else {
+            if !phrase.is_empty() {
+                phrase.push(' ');
+            }
+
+            phrase.push_str(&word);
+        }
+    }
+
+    (phrases, phrase)
+}
+
+fn process_paragraphs(
+    paragraph: &str,
+    special_char_regex: &Regex,
+    punctuation: &HashSet<String>,
+    stopwords: &HashSet<String>,
+) -> Option<String> {
+    if paragraph.trim().is_empty() {
+        return None;
+    }
+
+    Some(
+        paragraph
+            .unicode_sentences()
+            .map(|s| {
+                s.split_word_bounds()
+                    .filter_map(|w| process_word(w, &special_char_regex, stopwords, punctuation))
+                    .collect::<Vec<String>>()
+                    .join(" ")
+            })
+            .collect::<Vec<String>>()
+            .join(" "),
+    )
 }
 
 impl Tokenizer {
@@ -60,15 +114,23 @@ impl Tokenizer {
 
     /// Split text into words by splitting on word bounds.
     pub fn split_into_words(&self) -> Vec<String> {
+        let special_char_regex = get_special_char_regex();
+
+        #[cfg(feature = "parallel")]
+        return self
+            .text
+            .split_word_bounds()
+            .par_bridge()
+            .filter_map(|w| {
+                process_word(w, &special_char_regex, &self.stopwords, &self.punctuation)
+            })
+            .collect::<Vec<String>>();
+
+        #[cfg(not(feature = "parallel"))]
         self.text
             .split_word_bounds()
             .filter_map(|w| {
-                process_word(
-                    w,
-                    &get_special_char_regex(),
-                    &self.stopwords,
-                    &self.punctuation,
-                )
+                process_word(w, &special_char_regex, &self.stopwords, &self.punctuation)
             })
             .collect::<Vec<String>>()
     }
@@ -76,8 +138,25 @@ impl Tokenizer {
     /// Split text into unicode sentences by splitting on punctuation.
     pub fn split_into_sentences(&self) -> Vec<String> {
         let special_char_regex = get_special_char_regex();
-        get_sentence_space_regex()
-            .replace_all(&self.text, ".")
+        // let sentence_space_regex = get_sentence_space_regex();
+
+        #[cfg(feature = "parallel")]
+        return self
+            .text
+            .unicode_sentences()
+            .par_bridge()
+            .map(|s| {
+                s.split_word_bounds()
+                    .filter_map(|w| {
+                        process_word(w, &special_char_regex, &self.stopwords, &self.punctuation)
+                    })
+                    .collect::<Vec<String>>()
+                    .join(" ")
+            })
+            .collect::<Vec<String>>();
+
+        #[cfg(not(feature = "parallel"))]
+        self.text
             .unicode_sentences()
             .map(|s| {
                 s.split_word_bounds()
@@ -93,27 +172,27 @@ impl Tokenizer {
     /// Split text into phrases by splitting on stopwords.
     pub fn split_into_phrases(&self) -> Vec<String> {
         let special_char_regex = get_special_char_regex();
+
+        #[cfg(feature = "parallel")]
+        return self.parallel_phrase_split(&special_char_regex);
+
+        #[cfg(not(feature = "parallel"))]
+        self.basic_phrase_split(&special_char_regex)
+    }
+
+    #[cfg(not(feature = "parallel"))]
+    fn basic_phrase_split(&self, special_char_regex: &Regex) -> Vec<String> {
         let (mut phrases, last_phrase) = self.text.split_word_bounds().fold(
             (Vec::<String>::new(), String::new()),
-            |(mut phrases, mut acc), w| {
-                let word = special_char_regex.replace_all(w.trim(), "").to_lowercase();
-
-                if !is_punctuation(&word, &self.punctuation) {
-                    if self.stopwords.contains(&word) {
-                        if !acc.is_empty() {
-                            phrases.push(acc);
-                            acc = String::new();
-                        }
-                    } else {
-                        if !acc.is_empty() {
-                            acc.push(' ');
-                        }
-
-                        acc.push_str(&word);
-                    }
-                }
-
-                (phrases, acc)
+            |(phrases, acc), w| {
+                create_phrase(
+                    phrases,
+                    acc,
+                    w,
+                    &special_char_regex,
+                    &self.punctuation,
+                    &self.stopwords,
+                )
             },
         );
 
@@ -124,35 +203,55 @@ impl Tokenizer {
         phrases
     }
 
+    #[cfg(feature = "parallel")]
+    fn parallel_phrase_split(&self, special_char_regex: &Regex) -> Vec<String> {
+        get_sentence_space_regex()
+            .replace_all(&self.text, "¶")
+            .par_split('¶')
+            .map(|s| {
+                let (mut phrases, last_phrase) = s.split_word_bounds().fold(
+                    (Vec::<String>::new(), String::new()),
+                    |(phrases, acc), w| {
+                        create_phrase(
+                            phrases,
+                            acc,
+                            w,
+                            &special_char_regex,
+                            &self.punctuation,
+                            &self.stopwords,
+                        )
+                    },
+                );
+
+                if !last_phrase.is_empty() {
+                    phrases.push(last_phrase);
+                }
+
+                phrases
+            })
+            .flatten()
+            .collect::<Vec<String>>()
+    }
+
     /// Split text into paragraphs by splitting on newlines.
     pub fn split_into_paragraphs(&self) -> Vec<String> {
         let special_char_regex = get_special_char_regex();
-        get_newline_regex()
-            .split(&self.text)
-            .filter_map(|s| {
-                if s.trim().is_empty() {
-                    return None;
-                }
 
-                Some(
-                    s.unicode_sentences()
-                        .map(|s| {
-                            s.split_word_bounds()
-                                .filter_map(|w| {
-                                    process_word(
-                                        w,
-                                        &special_char_regex,
-                                        &self.stopwords,
-                                        &self.punctuation,
-                                    )
-                                })
-                                .collect::<Vec<String>>()
-                                .join(" ")
-                        })
-                        .collect::<Vec<String>>()
-                        .join(" "),
-                )
+        #[cfg(feature = "parallel")]
+        return self
+            .text
+            .par_lines()
+            .filter_map(|s| {
+                process_paragraphs(s, &special_char_regex, &self.punctuation, &self.stopwords)
             })
-            .collect::<Vec<String>>()
+            .collect::<Vec<String>>();
+
+        #[cfg(not(feature = "parallel"))]
+        self.text
+            .lines()
+            .filter_map(|s| {
+                process_paragraphs(s, &special_char_regex, &self.punctuation, &self.stopwords)
+            })
+            .collect()
     }
 }

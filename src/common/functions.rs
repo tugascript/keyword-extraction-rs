@@ -67,7 +67,7 @@ pub fn process_word(
 ) -> Option<String> {
     let word = special_char_regex.replace_all(w.trim(), "").to_lowercase();
 
-    if word.is_empty() || is_punctuation(&word, punctuation) || stopwords.contains(&word) {
+    if is_punctuation(&word, punctuation) || stopwords.contains(&word) {
         return None;
     }
 
