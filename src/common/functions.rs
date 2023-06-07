@@ -54,7 +54,7 @@ fn parallel_sort<'a>(map: &'a HashMap<String, f32, RandomState>) -> Vec<(&'a Str
     map_values
 }
 
-fn sort_ranked_map<'a>(map: &'a HashMap<String, f32, RandomState>) -> Vec<(&'a String, &'a f32)> {
+fn sort_ranked_map(map: &HashMap<String, f32, RandomState>) -> Vec<(&String, &f32)> {
     #[cfg(feature = "parallel")]
     {
         parallel_sort(map)

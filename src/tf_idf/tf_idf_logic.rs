@@ -129,7 +129,7 @@ impl TfIdfLogic {
             )
     }
 
-    fn calculate_tf<'a>(tf: HashMap<&'a str, f32>) -> HashMap<&'a str, f32> {
+    fn calculate_tf(tf: HashMap<&str, f32>) -> HashMap<&str, f32> {
         #[cfg(feature = "parallel")]
         {
             Self::parallel_tf(tf)
@@ -142,19 +142,19 @@ impl TfIdfLogic {
     }
 
     #[cfg(not(feature = "parallel"))]
-    fn basic_tf<'a>(tf: HashMap<&'a str, f32>) -> HashMap<&'a str, f32> {
+    fn basic_tf(tf: HashMap<&str, f32>) -> HashMap<&str, f32> {
         let total_words = tf.values().sum::<f32>();
         tf.iter()
             .map(|(word, count)| (*word, count / total_words))
-            .collect::<HashMap<&'a str, f32>>()
+            .collect::<HashMap<&str, f32>>()
     }
 
     #[cfg(feature = "parallel")]
-    fn parallel_tf<'a>(tf: HashMap<&'a str, f32>) -> HashMap<&'a str, f32> {
+    fn parallel_tf(tf: HashMap<&str, f32>) -> HashMap<&str, f32> {
         let total_words = tf.par_iter().map(|(_, v)| v).sum::<f32>();
         tf.par_iter()
             .map(|(word, count)| (*word, count / total_words))
-            .collect::<HashMap<&'a str, f32>>()
+            .collect::<HashMap<&str, f32>>()
     }
 
     fn calculate_idf<'a>(

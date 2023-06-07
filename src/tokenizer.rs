@@ -94,7 +94,7 @@ fn process_paragraphs(
             .unicode_sentences()
             .map(|s| {
                 s.split_word_bounds()
-                    .filter_map(|w| process_word(w, &special_char_regex, stopwords, punctuation))
+                    .filter_map(|w| process_word(w, special_char_regex, stopwords, punctuation))
                     .collect::<Vec<String>>()
                     .join(" ")
             })
@@ -188,7 +188,7 @@ impl Tokenizer {
 
         #[cfg(not(feature = "parallel"))]
         {
-            self.parallel_phrase_split(&special_char_regex)
+            self.basic_phrase_split(&special_char_regex)
         }
     }
 
@@ -201,7 +201,7 @@ impl Tokenizer {
                     phrases,
                     acc,
                     w,
-                    &special_char_regex,
+                    special_char_regex,
                     &self.punctuation,
                     &self.stopwords,
                 )
