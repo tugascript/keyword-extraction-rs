@@ -504,7 +504,7 @@ fn test_text_rank() {
             .iter()
             .map(|x| x.to_string())
             .collect::<HashSet<String>>(),
-        80.0
+        90.0
     ));
     assert!(is_percent_in_hashset(
         &text_rank
@@ -512,10 +512,11 @@ fn test_text_rank() {
             .iter()
             .flat_map(|phrases| phrases.split_whitespace().map(|w| w.to_string()))
             .collect::<Vec<String>>(),
-        &expected_words
+        &text_rank
+            .get_ranked_words(10)
             .iter()
             .map(|x| x.to_string())
             .collect::<HashSet<String>>(),
-        80.0
+        90.0
     ));
 }

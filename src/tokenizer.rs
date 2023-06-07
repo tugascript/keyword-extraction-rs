@@ -151,6 +151,21 @@ impl Tokenizer {
         }
     }
 
+    /// Split text into words by splitting on word bounds (always synchronous even with parallel flag).
+    pub fn sync_split_into_words(&self) -> Vec<String> {
+        self.text
+            .split_word_bounds()
+            .filter_map(|w| {
+                process_word(
+                    w,
+                    &get_special_char_regex(),
+                    &self.stopwords,
+                    &self.punctuation,
+                )
+            })
+            .collect::<Vec<String>>()
+    }
+
     /// Split text into unicode sentences by splitting on punctuation.
     pub fn split_into_sentences(&self) -> Vec<String> {
         let special_char_regex = get_special_char_regex();
@@ -177,6 +192,21 @@ impl Tokenizer {
         }
     }
 
+    /// Split text into unicode sentences (always synchronous even with parallel flag).
+    pub fn sync_split_into_sentences(&self) -> Vec<String> {
+        self.text
+            .unicode_sentences()
+            .map(|s| {
+                process_sentences(
+                    s,
+                    &get_special_char_regex(),
+                    &self.punctuation,
+                    &self.stopwords,
+                )
+            })
+            .collect::<Vec<String>>()
+    }
+
     /// Split text into phrases by splitting on stopwords.
     pub fn split_into_phrases(&self) -> Vec<String> {
         let special_char_regex = get_special_char_regex();
@@ -192,7 +222,13 @@ impl Tokenizer {
         }
     }
 
-    #[cfg(not(feature = "parallel"))]
+    /// Split text into words by splitting on word bounds (always synchronous even with parallel flag).
+    pub fn sync_split_into_phrases(&self) -> Vec<String> {
+        let special_char_regex = get_special_char_regex();
+
+        self.basic_phrase_split(&special_char_regex)
+    }
+
     fn basic_phrase_split(&self, special_char_regex: &Regex) -> Vec<String> {
         let (mut phrases, last_phrase) = self.text.split_word_bounds().fold(
             (Vec::<String>::new(), String::new()),
@@ -268,5 +304,20 @@ impl Tokenizer {
                 })
                 .collect()
         }
+    }
+
+    /// Split text into paragraphs (always synchronous even with parallel flag).
+    pub fn sync_split_into_paragraphs(&self) -> Vec<String> {
+        self.text
+            .lines()
+            .filter_map(|s| {
+                process_paragraphs(
+                    s,
+                    &get_special_char_regex(),
+                    &self.punctuation,
+                    &self.stopwords,
+                )
+            })
+            .collect()
     }
 }

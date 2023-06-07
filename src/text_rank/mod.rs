@@ -36,8 +36,8 @@ impl TextRank {
         let (text, stop_words, window_size, damping, tol) = params.get_params();
         let tokenizer = Tokenizer::new(text, stop_words, None);
         let (word_rank, phrase_rank) = TextRankLogic::build_text_rank(
-            tokenizer.split_into_words(),
-            tokenizer.split_into_phrases(),
+            tokenizer.sync_split_into_words(),
+            tokenizer.sync_split_into_phrases(),
             window_size,
             damping,
             tol,
