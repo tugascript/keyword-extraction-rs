@@ -12,9 +12,9 @@ This is a simple NLP library with a list of algorithms related to keyword extrac
 
 ## Algorithms
 
-The full list of intended algorithms before publishing this library on crates.io is as follows:
+The full list of the algorithms in this library:
 
-- Helper modules:
+- Helper algorithms:
     - [x] Tokenizer
     - [x] Co-occurrence
 - Keyword extraction algorithms:
@@ -22,11 +22,12 @@ The full list of intended algorithms before publishing this library on crates.io
     - [x] RAKE
     - [x] TextRank
 
-Note: I removed yake as my implementation was very slow. I will try to implement it again in the future.
+Upcoming algorithms:
+- YAKE
 
 ## Usage
 
-Add this to your `Cargo.toml`:
+Add the library to your `Cargo.toml`:
 
 ```toml
 [dependencies]
