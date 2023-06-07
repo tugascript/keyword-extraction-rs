@@ -51,18 +51,22 @@ fn score_word(
 
 fn get_node_indexes(nodes: &[&String]) -> HashMap<String, usize> {
     #[cfg(feature = "parallel")]
-    return nodes
-        .par_iter()
-        .enumerate()
-        .map(|(i, w)| (w.to_string(), i))
-        .collect::<HashMap<String, usize>>();
+    {
+        nodes
+            .par_iter()
+            .enumerate()
+            .map(|(i, w)| (w.to_string(), i))
+            .collect::<HashMap<String, usize>>()
+    }
 
     #[cfg(not(feature = "parallel"))]
-    nodes
-        .iter()
-        .enumerate()
-        .map(|(i, w)| (w.to_string(), i))
-        .collect::<HashMap<String, usize>>()
+    {
+        nodes
+            .iter()
+            .enumerate()
+            .map(|(i, w)| (w.to_string(), i))
+            .collect::<HashMap<String, usize>>()
+    }
 }
 
 fn get_scores(
@@ -73,32 +77,36 @@ fn get_scores(
     damping: f32,
 ) -> Vec<f32> {
     #[cfg(feature = "parallel")]
-    return graph
-        .par_iter()
-        .map(|(_, edges)| {
-            score_word(
-                edges,
-                &node_indexes,
-                &outgoing_weight_sums,
-                &prev_scores,
-                damping,
-            )
-        })
-        .collect();
+    {
+        graph
+            .par_iter()
+            .map(|(_, edges)| {
+                score_word(
+                    edges,
+                    &node_indexes,
+                    &outgoing_weight_sums,
+                    &prev_scores,
+                    damping,
+                )
+            })
+            .collect()
+    }
 
     #[cfg(not(feature = "parallel"))]
-    graph
-        .values()
-        .map(|edges| {
-            score_word(
-                edges,
-                &node_indexes,
-                &outgoing_weight_sums,
-                &prev_scores,
-                damping,
-            )
-        })
-        .collect();
+    {
+        graph
+            .values()
+            .map(|edges| {
+                score_word(
+                    edges,
+                    &node_indexes,
+                    &outgoing_weight_sums,
+                    &prev_scores,
+                    damping,
+                )
+            })
+            .collect()
+    }
 }
 
 fn check_tolorance(scores: &[f32], prev_scores: &[f32], tol: f32) -> bool {
