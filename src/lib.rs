@@ -13,11 +13,20 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with Rust Keyword Extraction. If not, see <http://www.gnu.org/licenses/>.
 
-pub mod co_occurrence;
 mod common;
+
+#[cfg(feature = "co_occurrence")]
+pub mod co_occurrence;
+
+#[cfg(feature = "rake")]
 pub mod rake;
+
+#[cfg(feature = "text_rank")]
 pub mod text_rank;
+
+#[cfg(feature = "tf_idf")]
 pub mod tf_idf;
+
 pub mod tokenizer;
 
 #[cfg(test)]

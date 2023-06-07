@@ -1,6 +1,6 @@
 [package]
 name = "keyword_extraction"
-version = "1.1.2"
+version = "1.2.0"
 edition = "2021"
 rust-version = "1.69.0"
 license = "LGPL-3.0-or-later"
@@ -28,3 +28,11 @@ stop-words = "0.7.1"
 
 [features]
 parallel = ["rayon"]
+tf_idf = []
+co_occurrence = []
+rake = []
+text_rank = []
+all = ["tf_idf", "co_occurrence", "rake", "text_rank"]
+
+#DEFAULT
+default = ["tf_idf"]

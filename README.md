@@ -10,9 +10,9 @@ This is a simple NLP library with a list of algorithms related to keyword extrac
 - RAKE for extracting key phrases from a document;
 - TextRank for extracting keywords and key phrases from a document;
 
-## Features
+## Algorithms
 
-The full list of intended features before publishing this library on crates.io is as follows:
+The full list of intended algorithms before publishing this library on crates.io is as follows:
 
 - Helper modules:
     - [x] Tokenizer
@@ -30,14 +30,28 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-keyword-extraction = "1.1.0"
+keyword-extraction = "1.2.0"
 ```
 
 Or use cargo add:
 
 ```bash
-$ cargo add keyword-extraction
+cargo add keyword-extraction
 ```
+
+### Features
+
+It is possible to enable or disable features:
+
+- `"tf_idf"`: TF-IDF algorithm;
+- `"rake"`: RAKE algorithm;
+- `"text_rank"`: TextRank algorithm;
+- `"all"`: all algorithms;
+- `"parallel"`: parallelization of the algorithms with Rayon;
+
+Default features: `"tf_idf"`.
+
+NOTE: `"parallel"` feature is only recommended for large documents, it exchanges memory for computation resourses.
 
 ## License
 
