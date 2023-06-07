@@ -153,15 +153,11 @@ impl Tokenizer {
 
     /// Split text into words by splitting on word bounds (always synchronous even with parallel flag).
     pub fn sync_split_into_words(&self) -> Vec<String> {
+        let special_char_regex = get_special_char_regex();
         self.text
             .split_word_bounds()
             .filter_map(|w| {
-                process_word(
-                    w,
-                    &get_special_char_regex(),
-                    &self.stopwords,
-                    &self.punctuation,
-                )
+                process_word(w, &special_char_regex, &self.stopwords, &self.punctuation)
             })
             .collect::<Vec<String>>()
     }
@@ -194,16 +190,10 @@ impl Tokenizer {
 
     /// Split text into unicode sentences (always synchronous even with parallel flag).
     pub fn sync_split_into_sentences(&self) -> Vec<String> {
+        let special_char_regex = get_special_char_regex();
         self.text
             .unicode_sentences()
-            .map(|s| {
-                process_sentences(
-                    s,
-                    &get_special_char_regex(),
-                    &self.punctuation,
-                    &self.stopwords,
-                )
-            })
+            .map(|s| process_sentences(s, &special_char_regex, &self.punctuation, &self.stopwords))
             .collect::<Vec<String>>()
     }
 
@@ -308,15 +298,11 @@ impl Tokenizer {
 
     /// Split text into paragraphs (always synchronous even with parallel flag).
     pub fn sync_split_into_paragraphs(&self) -> Vec<String> {
+        let special_char_regex = get_special_char_regex();
         self.text
             .lines()
             .filter_map(|s| {
-                process_paragraphs(
-                    s,
-                    &get_special_char_regex(),
-                    &self.punctuation,
-                    &self.stopwords,
-                )
+                process_paragraphs(s, &special_char_regex, &self.punctuation, &self.stopwords)
             })
             .collect()
     }
