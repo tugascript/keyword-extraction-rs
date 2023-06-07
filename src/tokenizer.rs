@@ -66,6 +66,19 @@ fn create_phrase(
     (phrases, phrase)
 }
 
+fn process_sentences(
+    sentence: &str,
+    special_char_regex: &Regex,
+    punctuation: &HashSet<String>,
+    stopwords: &HashSet<String>,
+) -> String {
+    sentence
+        .split_word_bounds()
+        .filter_map(|w| process_word(w, special_char_regex, stopwords, punctuation))
+        .collect::<Vec<String>>()
+        .join(" ")
+}
+
 fn process_paragraphs(
     paragraph: &str,
     special_char_regex: &Regex,
@@ -117,56 +130,51 @@ impl Tokenizer {
         let special_char_regex = get_special_char_regex();
 
         #[cfg(feature = "parallel")]
-        return self
-            .text
-            .split_word_bounds()
-            .par_bridge()
-            .filter_map(|w| {
-                process_word(w, &special_char_regex, &self.stopwords, &self.punctuation)
-            })
-            .collect::<Vec<String>>();
+        {
+            self.text
+                .split_word_bounds()
+                .par_bridge()
+                .filter_map(|w| {
+                    process_word(w, &special_char_regex, &self.stopwords, &self.punctuation)
+                })
+                .collect::<Vec<String>>()
+        }
 
         #[cfg(not(feature = "parallel"))]
-        self.text
-            .split_word_bounds()
-            .filter_map(|w| {
-                process_word(w, &special_char_regex, &self.stopwords, &self.punctuation)
-            })
-            .collect::<Vec<String>>()
+        {
+            self.text
+                .split_word_bounds()
+                .filter_map(|w| {
+                    process_word(w, &special_char_regex, &self.stopwords, &self.punctuation)
+                })
+                .collect::<Vec<String>>()
+        }
     }
 
     /// Split text into unicode sentences by splitting on punctuation.
     pub fn split_into_sentences(&self) -> Vec<String> {
         let special_char_regex = get_special_char_regex();
-        // let sentence_space_regex = get_sentence_space_regex();
 
         #[cfg(feature = "parallel")]
-        return self
-            .text
-            .unicode_sentences()
-            .par_bridge()
-            .map(|s| {
-                s.split_word_bounds()
-                    .filter_map(|w| {
-                        process_word(w, &special_char_regex, &self.stopwords, &self.punctuation)
-                    })
-                    .collect::<Vec<String>>()
-                    .join(" ")
-            })
-            .collect::<Vec<String>>();
+        {
+            self.text
+                .unicode_sentences()
+                .par_bridge()
+                .map(|s| {
+                    process_sentences(s, &special_char_regex, &self.punctuation, &self.stopwords)
+                })
+                .collect::<Vec<String>>()
+        }
 
         #[cfg(not(feature = "parallel"))]
-        self.text
-            .unicode_sentences()
-            .map(|s| {
-                s.split_word_bounds()
-                    .filter_map(|w| {
-                        process_word(w, &special_char_regex, &self.stopwords, &self.punctuation)
-                    })
-                    .collect::<Vec<String>>()
-                    .join(" ")
-            })
-            .collect::<Vec<String>>()
+        {
+            self.text
+                .unicode_sentences()
+                .map(|s| {
+                    process_sentences(s, &special_char_regex, &self.punctuation, &self.stopwords)
+                })
+                .collect::<Vec<String>>()
+        }
     }
 
     /// Split text into phrases by splitting on stopwords.
@@ -174,10 +182,14 @@ impl Tokenizer {
         let special_char_regex = get_special_char_regex();
 
         #[cfg(feature = "parallel")]
-        return self.parallel_phrase_split(&special_char_regex);
+        {
+            self.parallel_phrase_split(&special_char_regex)
+        }
 
         #[cfg(not(feature = "parallel"))]
-        self.basic_phrase_split(&special_char_regex)
+        {
+            self.parallel_phrase_split(&special_char_regex)
+        }
     }
 
     #[cfg(not(feature = "parallel"))]
@@ -238,20 +250,23 @@ impl Tokenizer {
         let special_char_regex = get_special_char_regex();
 
         #[cfg(feature = "parallel")]
-        return self
-            .text
-            .par_lines()
-            .filter_map(|s| {
-                process_paragraphs(s, &special_char_regex, &self.punctuation, &self.stopwords)
-            })
-            .collect::<Vec<String>>();
+        {
+            self.text
+                .par_lines()
+                .filter_map(|s| {
+                    process_paragraphs(s, &special_char_regex, &self.punctuation, &self.stopwords)
+                })
+                .collect::<Vec<String>>()
+        }
 
         #[cfg(not(feature = "parallel"))]
-        self.text
-            .lines()
-            .filter_map(|s| {
-                process_paragraphs(s, &special_char_regex, &self.punctuation, &self.stopwords)
-            })
-            .collect()
+        {
+            self.text
+                .lines()
+                .filter_map(|s| {
+                    process_paragraphs(s, &special_char_regex, &self.punctuation, &self.stopwords)
+                })
+                .collect()
+        }
     }
 }

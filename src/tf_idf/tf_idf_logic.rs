@@ -33,9 +33,18 @@ impl TfIdfLogic {
 
     fn generate_word_hashmap(documents: &[String]) -> HashMap<&str, f32> {
         #[cfg(feature = "parallel")]
-        return Self::parallel_word_hashmap(documents);
+        {
+            Self::parallel_word_hashmap(documents)
+        }
 
         #[cfg(not(feature = "parallel"))]
+        {
+            Self::basic_word_hashmap(documents)
+        }
+    }
+
+    #[cfg(not(feature = "parallel"))]
+    fn basic_word_hashmap(documents: &[String]) -> HashMap<&str, f32> {
         documents
             .iter()
             .flat_map(|document| document.split_whitespace())
@@ -72,9 +81,18 @@ impl TfIdfLogic {
 
     fn generate_unique_word_hashmap(documents: &[String]) -> HashMap<&str, f32> {
         #[cfg(feature = "parallel")]
-        return Self::parallel_unique_word_hashmap(documents);
+        {
+            Self::parallel_unique_word_hashmap(documents)
+        }
 
         #[cfg(not(feature = "parallel"))]
+        {
+            Self::basic_unique_word_hashmap(documents)
+        }
+    }
+
+    #[cfg(not(feature = "parallel"))]
+    fn basic_unique_word_hashmap(documents: &[String]) -> HashMap<&str, f32> {
         documents
             .iter()
             .map(|document| document.split_whitespace().collect::<HashSet<&str>>())
@@ -113,12 +131,19 @@ impl TfIdfLogic {
 
     fn calculate_tf<'a>(tf: HashMap<&'a str, f32>) -> HashMap<&'a str, f32> {
         #[cfg(feature = "parallel")]
-        return Self::parallel_tf(tf);
+        {
+            Self::parallel_tf(tf)
+        }
 
         #[cfg(not(feature = "parallel"))]
+        {
+            Self::basic_tf(tf)
+        }
+    }
+
+    #[cfg(not(feature = "parallel"))]
+    fn basic_tf<'a>(tf: HashMap<&'a str, f32>) -> HashMap<&'a str, f32> {
         let total_words = tf.values().sum::<f32>();
-
-        #[cfg(not(feature = "parallel"))]
         tf.iter()
             .map(|(word, count)| (*word, count / total_words))
             .collect::<HashMap<&'a str, f32>>()
@@ -126,8 +151,7 @@ impl TfIdfLogic {
 
     #[cfg(feature = "parallel")]
     fn parallel_tf<'a>(tf: HashMap<&'a str, f32>) -> HashMap<&'a str, f32> {
-        let total_words = tf.values().sum::<f32>();
-
+        let total_words = tf.par_iter().map(|(_, v)| v).sum::<f32>();
         tf.par_iter()
             .map(|(word, count)| (*word, count / total_words))
             .collect::<HashMap<&'a str, f32>>()
@@ -138,30 +162,26 @@ impl TfIdfLogic {
         word_hashmap: HashMap<&'a str, f32>,
     ) -> HashMap<&'a str, f32> {
         #[cfg(feature = "parallel")]
-        return Self::parallel_idf(docs_len, word_hashmap);
+        {
+            word_hashmap
+                .par_iter()
+                .map(|(word, count)| {
+                    let documents_with_term = (docs_len + 1.0_f32) / (count + 1.0_f32);
+                    (*word, documents_with_term.ln() + 1.0_f32)
+                })
+                .collect::<HashMap<&'a str, f32>>()
+        }
 
         #[cfg(not(feature = "parallel"))]
-        word_hashmap
-            .iter()
-            .map(|(word, count)| {
-                let documents_with_term = (docs_len + 1.0_f32) / (count + 1.0_f32);
-                (*word, documents_with_term.ln() + 1.0_f32)
-            })
-            .collect::<HashMap<&'a str, f32>>()
-    }
-
-    #[cfg(feature = "parallel")]
-    fn parallel_idf<'a>(
-        docs_len: f32,
-        word_hashmap: HashMap<&'a str, f32>,
-    ) -> HashMap<&'a str, f32> {
-        word_hashmap
-            .par_iter()
-            .map(|(word, count)| {
-                let documents_with_term = (docs_len + 1.0_f32) / (count + 1.0_f32);
-                (*word, documents_with_term.ln() + 1.0_f32)
-            })
-            .collect::<HashMap<&'a str, f32>>()
+        {
+            word_hashmap
+                .iter()
+                .map(|(word, count)| {
+                    let documents_with_term = (docs_len + 1.0_f32) / (count + 1.0_f32);
+                    (*word, documents_with_term.ln() + 1.0_f32)
+                })
+                .collect::<HashMap<&'a str, f32>>()
+        }
     }
 
     fn calculate_tf_idf<'a>(
@@ -169,36 +189,39 @@ impl TfIdfLogic {
         idf: HashMap<&'a str, f32>,
     ) -> HashMap<&'a str, f32> {
         #[cfg(feature = "parallel")]
-        return Self::parallel_tf_idf(tf, idf);
+        {
+            tf.par_iter()
+                .map(|(word, count)| (*word, count * idf.get(word).unwrap_or(&0.0_f32)))
+                .collect::<HashMap<&'a str, f32>>()
+        }
 
         #[cfg(not(feature = "parallel"))]
-        tf.iter()
-            .map(|(word, count)| (*word, count * idf.get(word).unwrap_or(&0.0_f32)))
-            .collect::<HashMap<&'a str, f32>>()
-    }
-
-    #[cfg(feature = "parallel")]
-    fn parallel_tf_idf<'a>(
-        tf: HashMap<&'a str, f32>,
-        idf: HashMap<&'a str, f32>,
-    ) -> HashMap<&'a str, f32> {
-        tf.par_iter()
-            .map(|(word, count)| (*word, count * idf.get(word).unwrap_or(&0.0_f32)))
-            .collect::<HashMap<&'a str, f32>>()
+        {
+            tf.iter()
+                .map(|(word, count)| (*word, count * idf.get(word).unwrap_or(&0.0_f32)))
+                .collect::<HashMap<&'a str, f32>>()
+        }
     }
 
     fn l2_normalize(tf_id: HashMap<&str, f32>) -> HashMap<String, f32> {
         #[cfg(feature = "parallel")]
-        return Self::parallel_l2_normalize(tf_id);
+        {
+            Self::parallel_l2_normalize(tf_id)
+        }
 
         #[cfg(not(feature = "parallel"))]
+        {
+            Self::basic_l2_normaliza(tf_id)
+        }
+    }
+
+    #[cfg(not(feature = "parallel"))]
+    fn basic_l2_normaliza(tf_id: HashMap<&str, f32>) -> HashMap<String, f32> {
         let l2_norm = tf_id
             .values()
             .map(|value| value * value)
             .sum::<f32>()
             .sqrt();
-
-        #[cfg(not(feature = "parallel"))]
         tf_id
             .iter()
             .map(|(key, value)| (key.to_string(), value / l2_norm))

@@ -103,16 +103,20 @@ fn get_scores(
 
 fn check_tolorance(scores: &[f32], prev_scores: &[f32], tol: f32) -> bool {
     #[cfg(feature = "parallel")]
-    return scores.par_iter().enumerate().all(|(i, score)| {
-        let prev_score = prev_scores[i];
-        (score - prev_score).abs() < tol
-    });
+    {
+        scores.par_iter().enumerate().all(|(i, score)| {
+            let prev_score = prev_scores[i];
+            (score - prev_score).abs() < tol
+        })
+    }
 
     #[cfg(not(feature = "parallel"))]
-    scores
-        .iter()
-        .zip(prev_scores.iter())
-        .all(|(score, prev_score)| (score - prev_score).abs() < tol)
+    {
+        scores
+            .iter()
+            .zip(prev_scores.iter())
+            .all(|(score, prev_score)| (score - prev_score).abs() < tol)
+    }
 }
 
 impl TextRankLogic {
@@ -166,22 +170,26 @@ impl TextRankLogic {
         graph: &HashMap<String, HashMap<String, f32>>,
     ) -> HashMap<String, f32> {
         #[cfg(feature = "parallel")]
-        return graph
-            .par_iter()
-            .map(|(node, edges)| {
-                let outgoing_weight_sum = edges.values().sum();
-                (node.to_string(), outgoing_weight_sum)
-            })
-            .collect();
+        {
+            graph
+                .par_iter()
+                .map(|(node, edges)| {
+                    let outgoing_weight_sum = edges.values().sum();
+                    (node.to_string(), outgoing_weight_sum)
+                })
+                .collect()
+        }
 
         #[cfg(not(feature = "parallel"))]
-        graph
-            .iter()
-            .map(|(node, edges)| {
-                let outgoing_weight_sum = edges.values().sum();
-                (node.to_string(), outgoing_weight_sum)
-            })
-            .collect()
+        {
+            graph
+                .iter()
+                .map(|(node, edges)| {
+                    let outgoing_weight_sum = edges.values().sum();
+                    (node.to_string(), outgoing_weight_sum)
+                })
+                .collect()
+        }
     }
 
     fn create_word_rank(
@@ -211,16 +219,20 @@ impl TextRankLogic {
         }
 
         #[cfg(feature = "parallel")]
-        return nodes
-            .par_iter()
-            .map(|&node| (node.to_string(), scores[node_indexes[node]]))
-            .collect::<HashMap<String, f32>>();
+        {
+            nodes
+                .par_iter()
+                .map(|&node| (node.to_string(), scores[node_indexes[node]]))
+                .collect::<HashMap<String, f32>>()
+        }
 
         #[cfg(not(feature = "parallel"))]
-        nodes
-            .iter()
-            .map(|&node| (node.to_string(), scores[node_indexes[node]]))
-            .collect::<HashMap<String, f32>>()
+        {
+            nodes
+                .iter()
+                .map(|&node| (node.to_string(), scores[node_indexes[node]]))
+                .collect::<HashMap<String, f32>>()
+        }
     }
 
     fn rank_phrases(
@@ -228,15 +240,19 @@ impl TextRankLogic {
         word_rank: &HashMap<String, f32>,
     ) -> HashMap<String, f32> {
         #[cfg(feature = "parallel")]
-        return phrases
-            .par_iter()
-            .map(|phrase| score_frase(phrase, word_rank))
-            .collect::<HashMap<String, f32>>();
+        {
+            phrases
+                .par_iter()
+                .map(|phrase| score_frase(phrase, word_rank))
+                .collect::<HashMap<String, f32>>()
+        }
 
         #[cfg(not(feature = "parallel"))]
-        phrases
-            .iter()
-            .map(|phrase| score_frase(phrase, word_rank))
-            .collect::<HashMap<String, f32>>()
+        {
+            phrases
+                .iter()
+                .map(|phrase| score_frase(phrase, word_rank))
+                .collect::<HashMap<String, f32>>()
+        }
     }
 }

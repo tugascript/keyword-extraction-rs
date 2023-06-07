@@ -65,25 +65,19 @@ impl<'a> DocumentProcessor<'a> {
         let special_char_regex = get_special_char_regex();
 
         #[cfg(feature = "parallel")]
-        return self.parallel_process_documents(&special_char_regex);
+        {
+            self.documents
+                .par_iter()
+                .map(|doc| self.process_document(doc, &special_char_regex))
+                .collect::<Vec<String>>()
+        }
 
         #[cfg(not(feature = "parallel"))]
-        self.basic_process_documents(&special_char_regex)
-    }
-
-    #[cfg(not(feature = "parallel"))]
-    fn basic_process_documents(&self, special_char_regex: &Regex) -> Vec<String> {
-        self.documents
-            .iter()
-            .map(|doc| self.process_document(doc, special_char_regex))
-            .collect::<Vec<String>>()
-    }
-
-    #[cfg(feature = "parallel")]
-    fn parallel_process_documents(&self, special_char_regex: &Regex) -> Vec<String> {
-        self.documents
-            .par_iter()
-            .map(|doc| self.process_document(doc, special_char_regex))
-            .collect::<Vec<String>>()
+        {
+            self.documents
+                .iter()
+                .map(|doc| self.process_document(doc, &special_char_regex))
+                .collect::<Vec<String>>()
+        }
     }
 }

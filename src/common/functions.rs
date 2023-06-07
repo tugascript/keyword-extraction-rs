@@ -56,42 +56,54 @@ fn parallel_sort<'a>(map: &'a HashMap<String, f32, RandomState>) -> Vec<(&'a Str
 
 fn sort_ranked_map<'a>(map: &'a HashMap<String, f32, RandomState>) -> Vec<(&'a String, &'a f32)> {
     #[cfg(feature = "parallel")]
-    return parallel_sort(map);
+    {
+        parallel_sort(map)
+    }
 
     #[cfg(not(feature = "parallel"))]
-    basic_sort(map)
+    {
+        basic_sort(map)
+    }
 }
 
 pub fn get_ranked_strings(map: &HashMap<String, f32, RandomState>, n: usize) -> Vec<String> {
     #[cfg(feature = "parallel")]
-    return sort_ranked_map(map)
-        .par_iter()
-        .take(n)
-        .map(|(word, _)| word.to_string())
-        .collect::<Vec<String>>();
+    {
+        sort_ranked_map(map)
+            .par_iter()
+            .take(n)
+            .map(|(word, _)| word.to_string())
+            .collect::<Vec<String>>()
+    }
 
     #[cfg(not(feature = "parallel"))]
-    sort_ranked_map(map)
-        .iter()
-        .take(n)
-        .map(|(word, _)| word.to_string())
-        .collect::<Vec<String>>()
+    {
+        sort_ranked_map(map)
+            .iter()
+            .take(n)
+            .map(|(word, _)| word.to_string())
+            .collect::<Vec<String>>()
+    }
 }
 
 pub fn get_ranked_scores(map: &HashMap<String, f32, RandomState>, n: usize) -> Vec<(String, f32)> {
     #[cfg(feature = "parallel")]
-    return sort_ranked_map(map)
-        .par_iter()
-        .take(n)
-        .map(|(w, v)| (w.to_string(), **v))
-        .collect::<Vec<(String, f32)>>();
+    {
+        sort_ranked_map(map)
+            .par_iter()
+            .take(n)
+            .map(|(w, v)| (w.to_string(), **v))
+            .collect::<Vec<(String, f32)>>()
+    }
 
     #[cfg(not(feature = "parallel"))]
-    sort_ranked_map(map)
-        .iter()
-        .take(n)
-        .map(|(w, v)| (w.to_string(), **v))
-        .collect::<Vec<(String, f32)>>()
+    {
+        sort_ranked_map(map)
+            .iter()
+            .take(n)
+            .map(|(w, v)| (w.to_string(), **v))
+            .collect::<Vec<(String, f32)>>()
+    }
 }
 
 pub fn get_special_char_regex() -> Regex {

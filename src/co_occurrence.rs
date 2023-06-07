@@ -36,32 +36,40 @@ fn get_window_range(window_size: usize, index: usize, words_length: usize) -> Ra
 
 fn create_words_indexes(words: &[String]) -> HashMap<String, usize> {
     #[cfg(feature = "parallel")]
-    return words
-        .par_iter()
-        .enumerate()
-        .map(|(i, w)| (w.to_string(), i))
-        .collect::<HashMap<String, usize>>();
+    {
+        words
+            .par_iter()
+            .enumerate()
+            .map(|(i, w)| (w.to_string(), i))
+            .collect::<HashMap<String, usize>>()
+    }
 
     #[cfg(not(feature = "parallel"))]
-    words
-        .iter()
-        .enumerate()
-        .map(|(i, w)| (w.to_string(), i))
-        .collect::<HashMap<String, usize>>()
+    {
+        words
+            .iter()
+            .enumerate()
+            .map(|(i, w)| (w.to_string(), i))
+            .collect::<HashMap<String, usize>>()
+    }
 }
 
 fn create_indexes_words(labels: &HashMap<String, usize>) -> HashMap<usize, String> {
     #[cfg(feature = "parallel")]
-    return labels
-        .par_iter()
-        .map(|(w, i)| (i.to_owned(), w.to_string()))
-        .collect::<HashMap<usize, String>>();
+    {
+        labels
+            .par_iter()
+            .map(|(w, i)| (i.to_owned(), w.to_string()))
+            .collect::<HashMap<usize, String>>()
+    }
 
     #[cfg(not(feature = "parallel"))]
-    labels
-        .iter()
-        .map(|(w, i)| (i.to_owned(), w.to_string()))
-        .collect::<HashMap<usize, String>>()
+    {
+        labels
+            .iter()
+            .map(|(w, i)| (i.to_owned(), w.to_string()))
+            .collect::<HashMap<usize, String>>()
+    }
 }
 
 fn get_matrix(
@@ -150,7 +158,6 @@ impl CoOccurrence {
         &self.words_indexes
     }
 
-    // TODO: remove duplicate code
     /// Get all relations of a given word.
     pub fn get_relations(&self, word: &str) -> Option<Vec<(String, f32)>> {
         let label = match self.get_label(word) {
@@ -159,38 +166,42 @@ impl CoOccurrence {
         };
 
         #[cfg(feature = "parallel")]
-        return Some(
-            self.matrix[label]
-                .par_iter()
-                .enumerate()
-                .filter_map(|(i, &v)| {
-                    if v > 0.0 {
-                        if let Some(w) = self.get_word(i) {
-                            return Some((w, v));
+        {
+            Some(
+                self.matrix[label]
+                    .par_iter()
+                    .enumerate()
+                    .filter_map(|(i, &v)| {
+                        if v > 0.0 {
+                            if let Some(w) = self.get_word(i) {
+                                return Some((w, v));
+                            }
                         }
-                    }
 
-                    None
-                })
-                .collect::<Vec<(String, f32)>>(),
-        );
+                        None
+                    })
+                    .collect::<Vec<(String, f32)>>(),
+            )
+        }
 
         #[cfg(not(feature = "parallel"))]
-        Some(
-            self.matrix[label]
-                .iter()
-                .enumerate()
-                .filter_map(|(i, &v)| {
-                    if v > 0.0 {
-                        if let Some(w) = self.get_word(i) {
-                            return Some((w, v));
+        {
+            Some(
+                self.matrix[label]
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(i, &v)| {
+                        if v > 0.0 {
+                            if let Some(w) = self.get_word(i) {
+                                return Some((w, v));
+                            }
                         }
-                    }
 
-                    None
-                })
-                .collect::<Vec<(String, f32)>>(),
-        )
+                        None
+                    })
+                    .collect::<Vec<(String, f32)>>(),
+            )
+        }
     }
 
     /// Get the row of a given word.
