@@ -16,6 +16,7 @@
 use std::collections::HashSet;
 
 use regex::Regex;
+use unicode_segmentation::UnicodeSegmentation;
 
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
@@ -55,8 +56,15 @@ impl<'a> DocumentProcessor<'a> {
 
     fn process_document(&self, document: &str, special_char_regex: &Regex) -> String {
         document
-            .split_whitespace()
-            .filter_map(|w| process_word(w, special_char_regex, &self.stopwords, &self.punctuation))
+            .unicode_sentences()
+            .map(|s| {
+                s.split_word_bounds()
+                    .filter_map(|w| {
+                        process_word(w, special_char_regex, &self.stopwords, &self.punctuation)
+                    })
+                    .collect::<Vec<String>>()
+                    .join(" ")
+            })
             .collect::<Vec<String>>()
             .join(" ")
     }
