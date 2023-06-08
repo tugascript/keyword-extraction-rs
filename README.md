@@ -31,13 +31,13 @@ Add the library to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-keyword-extraction = "1.2.0"
+keyword_extraction = "1.2.1"
 ```
 
 Or use cargo add:
 
 ```bash
-cargo add keyword-extraction
+cargo add keyword_extraction
 ```
 
 ### Features
