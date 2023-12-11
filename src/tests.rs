@@ -313,6 +313,7 @@ fn test_tf_idf() {
     let tf_idf = tf_idf::TfIdf::new(tf_idf::TfIdfParams::TextBlock(
         TEXT,
         &get_stop_words(),
+        None,
         tf_idf::TextSplit::Paragraphs,
     ));
     let words_result = tf_idf.get_ranked_words(100);
@@ -476,8 +477,24 @@ fn test_rake() {
         "team oriented environment nice",
         "rust programming language familiarity",
     ];
-    let reka_struct = rake::Rake::new(TEXT, &get_stop_words());
-    assert_eq!(reka_struct.get_ranked_phrases(10), rake_result);
+    let rake_struct = rake::Rake::new(rake::RakeParams::WithDefaults(TEXT, &get_stop_words()));
+    assert!(is_percent_in_hashset(
+        &rake_struct.get_ranked_phrases(10),
+        &rake_result
+            .iter()
+            .map(|x| x.to_string())
+            .collect::<HashSet<String>>(),
+        90.0
+    ));
+
+    let limited_rake_struct = rake::Rake::new(rake::RakeParams::WithDefaultsAndPhraseLength(
+        TEXT,
+        &get_stop_words(),
+        Some(3),
+    ));
+    for phrase in limited_rake_struct.get_ranked_phrases(10) {
+        assert!(phrase.split_whitespace().count() <= 3);
+    }
 }
 
 #[test]
@@ -519,4 +536,11 @@ fn test_text_rank() {
             .collect::<HashSet<String>>(),
         90.0
     ));
+
+    let limited_text_rank = text_rank::TextRank::new(
+        text_rank::TextRankParams::WithDefaultsAndPhraseLength(TEXT, &get_stop_words(), Some(3)),
+    );
+    for phrase in limited_text_rank.get_ranked_phrases(10) {
+        assert!(phrase.split_whitespace().count() <= 3);
+    }
 }
