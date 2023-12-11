@@ -27,21 +27,31 @@ pub enum TextSplit {
     Phrases,
 }
 
+/// The `TfIdfParams` enum represents the parameters for the TF-IDF (Term Frequency - Inverse Document Frequency) algorithm.
 /// The parameters to be used in the Tf-Idf algorithm.
 pub enum TfIdfParams<'a> {
-    /// ### Arguments
-    /// 1. `documents` - The documents to be analyzed.
-    /// 2. `stop_words` - A list of stop words.
-    /// 3. `punctuation` - A list of punctuation.
+    /// Represents unprocessed documents to be analyzed.
+    ///
+    /// ## Arguments
+    /// * `documents`: The documents to be analyzed.
+    /// * `stop_words`: A list of stop words.
+    /// * `punctuation`: Optional list of punctuation symbols.
     UnprocessedDocuments(Documents<'a>, Stopwords<'a>, Punctuation<'a>),
-    /// ### Arguments
-    /// 1. `documents` - The pre-processed documents to be analyzed.
+
+    /// Represents pre-processed documents to be analyzed.
+    ///
+    /// ## Arguments
+    /// * `documents`: The pre-processed documents to be analyzed.
     ProcessedDocuments(Documents<'a>),
-    /// ### Arguments
-    /// 1. `text` - The text to be analyzed.
-    /// 2. `stop_words` - A list of stop words.
-    /// 3. `split` - The option to split the text into documents.
-    TextBlock(Text<'a>, Stopwords<'a>, TextSplit),
+
+    /// Represents a text block to be analyzed.
+    ///
+    /// ## Arguments
+    /// * `text`: The text to be analyzed.
+    /// * `stop_words`: A list of stop words.
+    /// * `punctuation`: Optional list of punctuation symbols.
+    /// * `split`: The option to split the text into documents.
+    TextBlock(Text<'a>, Stopwords<'a>, Punctuation<'a>, TextSplit),
 }
 
 impl<'a> TfIdfParams<'a> {
@@ -52,12 +62,12 @@ impl<'a> TfIdfParams<'a> {
                 DocumentProcessor::new(documents, stopwords, punctuatuion).process_documents()
             }
             TfIdfParams::ProcessedDocuments(documents) => documents.to_vec(),
-            TfIdfParams::TextBlock(text, stop_words, split) => {
-                let tokenizer = Tokenizer::new(text, stop_words, None);
+            TfIdfParams::TextBlock(text, stop_words, punctuation, split) => {
+                let tokenizer = Tokenizer::new(text, stop_words, *punctuation);
                 match split {
                     TextSplit::Sentences => tokenizer.split_into_sentences(),
                     TextSplit::Paragraphs => tokenizer.split_into_paragraphs(),
-                    TextSplit::Phrases => tokenizer.split_into_phrases(),
+                    TextSplit::Phrases => tokenizer.split_into_phrases(None),
                 }
             }
         }
