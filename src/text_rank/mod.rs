@@ -33,11 +33,12 @@ pub struct TextRank {
 impl TextRank {
     /// Create a new TextRank instance.
     pub fn new(params: TextRankParams) -> Self {
-        let (text, stop_words, window_size, damping, tol) = params.get_params();
-        let tokenizer = Tokenizer::new(text, stop_words, None);
+        let (text, stop_words, punctuation, window_size, damping, tol, phrase_length) =
+            params.get_params();
+        let tokenizer = Tokenizer::new(text, stop_words, punctuation);
         let (word_rank, phrase_rank) = TextRankLogic::build_text_rank(
             tokenizer.sync_split_into_words(),
-            tokenizer.sync_split_into_phrases(),
+            tokenizer.sync_split_into_phrases(phrase_length),
             window_size,
             damping,
             tol,

@@ -18,3 +18,4 @@ pub type Stopwords<'a> = &'a [String];
 pub type Punctuation<'a> = Option<&'a [String]>;
 pub type Documents<'a> = &'a [String];
 pub type WindowSize = usize;
+pub type PhraseLength = Option<usize>;

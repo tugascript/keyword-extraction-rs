@@ -20,7 +20,7 @@ use rayon::prelude::*;
 
 pub struct TextRankLogic;
 
-fn score_frase(phrase: &str, word_rank: &HashMap<String, f32>) -> (String, f32) {
+fn score_phrase(phrase: &str, word_rank: &HashMap<String, f32>) -> (String, f32) {
     let words = phrase.split_whitespace().collect::<Vec<&str>>();
     let score = words
         .iter()
@@ -245,13 +245,13 @@ impl TextRankLogic {
 
     fn rank_phrases(
         phrases: Vec<String>,
-        word_rank: &HashMap<String, f32>,
+        word_scores: &HashMap<String, f32>,
     ) -> HashMap<String, f32> {
         #[cfg(feature = "parallel")]
         {
             phrases
                 .par_iter()
-                .map(|phrase| score_frase(phrase, word_rank))
+                .map(|phrase| score_phrase(phrase, word_scores))
                 .collect::<HashMap<String, f32>>()
         }
 
@@ -259,7 +259,7 @@ impl TextRankLogic {
         {
             phrases
                 .iter()
-                .map(|phrase| score_frase(phrase, word_rank))
+                .map(|phrase| score_phrase(phrase, word_scores))
                 .collect::<HashMap<String, f32>>()
         }
     }
