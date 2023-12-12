@@ -158,6 +158,10 @@ fn main() {
 }
 ```
 
+## Contributing
+
+I would love your input! I want to make contributing to this project as easy and transparent as possible, please read the [CONTRIBUTING.md](CONTRIBUTING.md) file for details.
+
 ## License
 
 This project is licensed under the GNU Lesser General Public License v3.0. See the [Copying](COPYING)
