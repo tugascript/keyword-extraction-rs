@@ -21,9 +21,7 @@ The full list of the algorithms in this library:
     - [x] TF-IDF
     - [x] RAKE
     - [x] TextRank
-
-Upcoming algorithms:
-- YAKE
+    - [ ] YAKE
 
 ## Usage
 
@@ -31,7 +29,7 @@ Add the library to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-keyword_extraction = "1.2.1"
+keyword_extraction = "1.3.0"
 ```
 
 Or use cargo add:
@@ -47,12 +45,106 @@ It is possible to enable or disable features:
 - `"tf_idf"`: TF-IDF algorithm;
 - `"rake"`: RAKE algorithm;
 - `"text_rank"`: TextRank algorithm;
-- `"all"`: all algorithms;
+- `"all"`: algorimths and helpers;
 - `"parallel"`: parallelization of the algorithms with Rayon;
+- `"co_occurrence"`: Co-occurrence algorithm;
 
-Default features: `"tf_idf"`.
+Default features: `["tf_idf", "rake", "text_rank"]`. By default all algorithms apart from `"co_occurrence"` are enabled.
 
-NOTE: `"parallel"` feature is only recommended for large documents, it exchanges memory for computation resourses.
+<small>NOTE: `"parallel"` feature is only recommended for large documents, it exchanges memory for computation resourses.</small>
+
+### Examples
+
+For the stop words, you can use the `stop-words` crate:
+
+```toml
+[dependencies]
+stop-words = "0.8.0"
+```
+
+For example for english:
+
+```rust
+use stop_words::{get, LANGUAGE};
+
+fn main() {
+    let stop_words = get(LANGUAGE::English);
+    let punctuation: Vec<String> =[
+        ".", ",", ":", ";", "!", "?", "(", ")", "[", "]", "{", "}", "\"", "'",
+    ].iter().map(|s| s.to_string()).collect();
+    ]
+    // ...
+}
+```
+
+#### TF-IDF
+
+First, create a `TfIdfParams` enum which can be one of the following:
+
+1. Unprocessed Documents: `TfIdfParams::UnprocessedDocuments`;
+2. Processed Documents: `TfIdfParams::ProcessedDocuments`;
+3. Single Unprocessed Document/Text block: `TfIdfParams::TextBlock`;
+
+```rust
+use keyword_extraction::tf_idf::{TfIdf, TfIdfParams};
+
+fn main() {
+    // ... stop_words & punctuation
+    let documents: Vec<String> = vec![
+        "This is a test document.".to_string(),
+        "This is another test document.".to_string(),
+        "This is a third test document.".to_string(),
+    ];
+
+    let params = TfIdfParams::UnprocessedDocuments(&documents, &stop_words, Some(&punctuation));
+
+    let tf_idf = TfIdf::new(params);
+    let ranked_keywords: Vec<String> = tf_idf.get_ranked_words(10);
+    let ranked_keywords_scores: Vec<(String, f32)> = tf_idf.get_ranked_word_scores(10);
+
+    // ...
+}
+```
+
+#### RAKE
+
+```rust
+use keyword_extraction::rake::{Rake, RakeParams};
+
+fn main() {
+    // ... stop_words & punctuation
+    let documents = r#"
+        This is a test document.
+        This is another test document.
+        This is a third test document.
+    "#;
+
+    let rake = Rake::new(RakeParams::WithDefaults(documents, &stop_words));
+    let ranked_keywords: Vec<String> = rake.get_ranked_words(10);
+    let ranked_keywords_scores: Vec<(String, f32)> = rake.get_ranked_word_scores(10);
+
+    // ...
+}
+```
+
+#### TextRank
+
+```rust
+use keyword_extraction::text_rank::{TextRank, TextRankParams};
+
+fn main() {
+    // ... stop_words & punctuation
+    let documents = r#"
+        This is a test document.
+        This is another test document.
+        This is a third test document.
+    "#;
+
+    let text_rank = TextRank::new(TextRankParams::WithDefaults(documents, &stop_words));
+    let ranked_keywords: Vec<String> = text_rank.get_ranked_words(10);
+    let ranked_keywords_scores: Vec<(String, f32)> = text_rank.get_ranked_word_scores(10);
+}
+```
 
 ## License
 
