@@ -22,7 +22,8 @@ use unicode_segmentation::UnicodeSegmentation;
 use rayon::prelude::*;
 
 use crate::common::{
-    get_special_char_regex, is_punctuation, process_word, Punctuation, Stopwords, Text, PUNCTUATION,
+    get_special_char_regex, is_punctuation, process_word, PhraseLength, Punctuation, Stopwords,
+    Text, PUNCTUATION,
 };
 
 pub struct Tokenizer {
@@ -43,6 +44,7 @@ fn create_phrase(
     special_char_regex: &Regex,
     punctuation: &HashSet<String>,
     stopwords: &HashSet<String>,
+    length: Option<usize>,
 ) -> (Vec<String>, String) {
     let word = special_char_regex
         .replace_all(base_word.trim(), "")
@@ -60,6 +62,12 @@ fn create_phrase(
             }
 
             phrase.push_str(&word);
+        }
+    }
+    if let Some(length) = length {
+        if phrase.split_whitespace().count() >= length {
+            phrases.push(phrase);
+            phrase = String::new();
         }
     }
 
@@ -198,28 +206,28 @@ impl Tokenizer {
     }
 
     /// Split text into phrases by splitting on stopwords.
-    pub fn split_into_phrases(&self) -> Vec<String> {
+    pub fn split_into_phrases(&self, length: PhraseLength) -> Vec<String> {
         let special_char_regex = get_special_char_regex();
 
         #[cfg(feature = "parallel")]
         {
-            self.parallel_phrase_split(&special_char_regex)
+            self.parallel_phrase_split(&special_char_regex, length)
         }
 
         #[cfg(not(feature = "parallel"))]
         {
-            self.basic_phrase_split(&special_char_regex)
+            self.basic_phrase_split(&special_char_regex, length)
         }
     }
 
     /// Split text into words by splitting on word bounds (always synchronous even with parallel flag).
-    pub fn sync_split_into_phrases(&self) -> Vec<String> {
+    pub fn sync_split_into_phrases(&self, length: Option<usize>) -> Vec<String> {
         let special_char_regex = get_special_char_regex();
 
-        self.basic_phrase_split(&special_char_regex)
+        self.basic_phrase_split(&special_char_regex, length)
     }
 
-    fn basic_phrase_split(&self, special_char_regex: &Regex) -> Vec<String> {
+    fn basic_phrase_split(&self, special_char_regex: &Regex, length: Option<usize>) -> Vec<String> {
         let (mut phrases, last_phrase) = self.text.split_word_bounds().fold(
             (Vec::<String>::new(), String::new()),
             |(phrases, acc), w| {
@@ -230,6 +238,7 @@ impl Tokenizer {
                     special_char_regex,
                     &self.punctuation,
                     &self.stopwords,
+                    length,
                 )
             },
         );
@@ -242,7 +251,11 @@ impl Tokenizer {
     }
 
     #[cfg(feature = "parallel")]
-    fn parallel_phrase_split(&self, special_char_regex: &Regex) -> Vec<String> {
+    fn parallel_phrase_split(
+        &self,
+        special_char_regex: &Regex,
+        length: Option<usize>,
+    ) -> Vec<String> {
         get_sentence_space_regex()
             .replace_all(&self.text, "¶")
             .par_split('¶')
@@ -257,6 +270,7 @@ impl Tokenizer {
                             &special_char_regex,
                             &self.punctuation,
                             &self.stopwords,
+                            length,
                         )
                     },
                 );

@@ -18,7 +18,7 @@ pub struct RakeLogic;
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
-use crate::common::{Stopwords, Text};
+use crate::common::{PhraseLength, Punctuation, Stopwords, Text};
 use crate::tokenizer::Tokenizer;
 use std::collections::HashMap;
 
@@ -40,15 +40,17 @@ fn calculate_phrase_score(phrase: &[String], word_scores: &HashMap<String, f32>)
         .iter()
         .map(|word| word_scores.get(word).unwrap_or(&0.0))
         .sum::<f32>();
-    (phrase.join(" "), score)
+    (phrase.join(" "), score / phrase.len() as f32)
 }
 
 impl RakeLogic {
     pub fn build_rake(
         text: Text,
         stopwords: Stopwords,
+        punctuation: Punctuation,
+        phrase_len: PhraseLength,
     ) -> (HashMap<String, f32>, HashMap<String, f32>) {
-        let phrases = Self::split_into_phrases(text, stopwords);
+        let phrases = Self::split_into_phrases(text, stopwords, punctuation, phrase_len);
         let word_scores = Self::calculate_word_scores(
             Self::generate_word_frequency(&phrases),
             Self::generate_word_degree(&phrases),
@@ -57,8 +59,13 @@ impl RakeLogic {
         (word_scores, phrase_scores)
     }
 
-    fn split_into_phrases(text: &str, stopwords: &[String]) -> Vec<Vec<String>> {
-        let phrases = Tokenizer::new(text, stopwords, None).split_into_phrases();
+    fn split_into_phrases(
+        text: &str,
+        stopwords: Stopwords,
+        punctuation: Punctuation,
+        length: PhraseLength,
+    ) -> Vec<Vec<String>> {
+        let phrases = Tokenizer::new(text, stopwords, punctuation).split_into_phrases(length);
 
         #[cfg(feature = "parallel")]
         {

@@ -16,9 +16,11 @@
 use std::collections::HashMap;
 
 mod rake_logic;
+pub mod rake_params;
 use rake_logic::RakeLogic;
+pub use rake_params::RakeParams;
 
-use crate::common::{get_ranked_scores, get_ranked_strings, Stopwords, Text};
+use crate::common::{get_ranked_scores, get_ranked_strings};
 
 pub struct Rake {
     word_scores: HashMap<String, f32>,
@@ -27,8 +29,10 @@ pub struct Rake {
 
 impl Rake {
     /// Create a new Rake instance.
-    pub fn new(text: Text, stopwords: Stopwords) -> Self {
-        let (word_scores, phrase_scores) = RakeLogic::build_rake(text, stopwords);
+    pub fn new(params: RakeParams) -> Self {
+        let (text, stopwords, punctuation, phrase_len) = params.get_rake_params();
+        let (word_scores, phrase_scores) =
+            RakeLogic::build_rake(text, stopwords, punctuation, phrase_len);
 
         Self {
             phrase_scores,
