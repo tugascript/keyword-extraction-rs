@@ -79,7 +79,7 @@ fn main() {
 
 #### TF-IDF
 
-First, create a `TfIdfParams` enum which can be one of the following:
+Create a `TfIdfParams` enum which can be one of the following:
 
 1. Unprocessed Documents: `TfIdfParams::UnprocessedDocuments`;
 2. Processed Documents: `TfIdfParams::ProcessedDocuments`;
@@ -108,18 +108,24 @@ fn main() {
 
 #### RAKE
 
+Create a `RakeParams` enum which can be one of the following:
+
+1. With defaults: `RakeParams::WithDefaults`;
+2. With defaults and phrase length (phrase window size limit): `RakeParams::WithDefaultsAndPhraseLength`;
+3. All: `RakeParams::All`;
+
 ```rust
 use keyword_extraction::rake::{Rake, RakeParams};
 
 fn main() {
     // ... stop_words & punctuation
-    let documents = r#"
+    let text = r#"
         This is a test document.
         This is another test document.
         This is a third test document.
     "#;
 
-    let rake = Rake::new(RakeParams::WithDefaults(documents, &stop_words));
+    let rake = Rake::new(RakeParams::WithDefaults(text, &stop_words));
     let ranked_keywords: Vec<String> = rake.get_ranked_words(10);
     let ranked_keywords_scores: Vec<(String, f32)> = rake.get_ranked_word_scores(10);
 
@@ -129,18 +135,24 @@ fn main() {
 
 #### TextRank
 
+Create a `TextRankParams` enum which can be one of the following:
+
+1. With defaults: `TextRankParams::WithDefaults`;
+2. With defaults and phrase length (phrase window size limit): `TextRankParams::WithDefaultsAndPhraseLength`;
+3. All: `TextRankParams::All`;
+
 ```rust
 use keyword_extraction::text_rank::{TextRank, TextRankParams};
 
 fn main() {
     // ... stop_words & punctuation
-    let documents = r#"
+    let text = r#"
         This is a test document.
         This is another test document.
         This is a third test document.
     "#;
 
-    let text_rank = TextRank::new(TextRankParams::WithDefaults(documents, &stop_words));
+    let text_rank = TextRank::new(TextRankParams::WithDefaults(text, &stop_words));
     let ranked_keywords: Vec<String> = text_rank.get_ranked_words(10);
     let ranked_keywords_scores: Vec<(String, f32)> = text_rank.get_ranked_word_scores(10);
 }
