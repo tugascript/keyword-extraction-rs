@@ -97,11 +97,10 @@ fn get_matrix(
                         doc_words
                             .get(j)
                             .and_then(|other_word| words_indexes.get(*other_word))
-                            .map(|other_index| *other_index)
                     })
                     .for_each(|other_index| {
-                        matrix[first_index][other_index] += 1.0;
-                        let current = matrix[first_index][other_index];
+                        matrix[first_index][*other_index] += 1.0;
+                        let current = matrix[first_index][*other_index];
 
                         if current > max {
                             max = current;
