@@ -24,8 +24,8 @@ type Words<'a> = &'a [String];
 
 pub struct CoOccurrence {
     matrix: Vec<Vec<f32>>,
+    words: Vec<String>,
     words_indexes: HashMap<String, usize>,
-    indexes_words: HashMap<usize, String>,
 }
 
 fn get_window_range(window_size: usize, index: usize, words_length: usize) -> Range<usize> {
@@ -51,24 +51,6 @@ fn create_words_indexes(words: &[String]) -> HashMap<String, usize> {
             .enumerate()
             .map(|(i, w)| (w.to_string(), i))
             .collect::<HashMap<String, usize>>()
-    }
-}
-
-fn create_indexes_words(labels: &HashMap<String, usize>) -> HashMap<usize, String> {
-    #[cfg(feature = "parallel")]
-    {
-        labels
-            .par_iter()
-            .map(|(w, i)| (i.to_owned(), w.to_string()))
-            .collect::<HashMap<usize, String>>()
-    }
-
-    #[cfg(not(feature = "parallel"))]
-    {
-        labels
-            .iter()
-            .map(|(w, i)| (i.to_owned(), w.to_string()))
-            .collect::<HashMap<usize, String>>()
     }
 }
 
@@ -132,7 +114,7 @@ impl CoOccurrence {
 
         Self {
             matrix: get_matrix(documents, &words_indexes, length, window_size),
-            indexes_words: create_indexes_words(&words_indexes),
+            words: words.to_vec(),
             words_indexes,
         }
     }
@@ -144,7 +126,7 @@ impl CoOccurrence {
 
     /// Get the word of a numeric label.
     pub fn get_word(&self, label: usize) -> Option<String> {
-        self.indexes_words.get(&label).map(|w| w.to_owned())
+        self.words.get(label).map(|w| w.to_owned())
     }
 
     /// Get the matrix of the co-occurrence.
