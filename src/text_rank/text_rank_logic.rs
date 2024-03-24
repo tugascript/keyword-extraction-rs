@@ -56,7 +56,7 @@ fn get_node_indexes<'a>(nodes: &'a [&'a str]) -> HashMap<&'a str, usize> {
             .par_iter()
             .enumerate()
             .map(|(i, w)| (*w, i))
-            .collect::<HashMap<String, usize>>()
+            .collect::<HashMap<&str, usize>>()
     }
 
     #[cfg(not(feature = "parallel"))]
