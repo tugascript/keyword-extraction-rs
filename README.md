@@ -15,13 +15,13 @@ This is a simple NLP library with a list of algorithms related to keyword extrac
 The full list of the algorithms in this library:
 
 - Helper algorithms:
-    - [x] Tokenizer
-    - [x] Co-occurrence
+  - [x] Tokenizer
+  - [x] Co-occurrence
 - Keyword extraction algorithms:
-    - [x] TF-IDF
-    - [x] RAKE
-    - [x] TextRank
-    - [ ] YAKE
+  - [x] TF-IDF
+  - [x] RAKE
+  - [x] TextRank
+  - [ ] YAKE
 
 ## Usage
 
@@ -29,7 +29,7 @@ Add the library to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-keyword_extraction = "1.3.0"
+keyword_extraction = "1.3.1"
 ```
 
 Or use cargo add:
