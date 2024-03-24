@@ -155,8 +155,6 @@ impl TextRankLogic {
     }
 
     fn create_graph(words: &[String], window_size: usize) -> HashMap<&str, HashMap<&str, f32>> {
-        let mut graph = HashMap::new();
-
         words
             .iter()
             .enumerate()
@@ -167,12 +165,11 @@ impl TextRankLogic {
                     .filter(|word2| word1.as_str() != word2.as_str())
                     .map(move |word2| (word1, word2))
             })
-            .for_each(|(word1, word2)| {
+            .fold(HashMap::new(), |mut graph, (word1, word2)| {
                 Self::add_edge(&mut graph, word1, word2);
                 Self::add_edge(&mut graph, word2, word1);
-            });
-
-        graph
+                graph
+            })
     }
 
     fn get_outgoing_weight_sum<'a>(
