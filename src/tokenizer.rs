@@ -267,7 +267,7 @@ impl Tokenizer {
                             phrases,
                             acc,
                             w,
-                            &special_char_regex,
+                            special_char_regex,
                             &self.punctuation,
                             &self.stopwords,
                             length,

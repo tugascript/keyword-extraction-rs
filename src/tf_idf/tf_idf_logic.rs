@@ -60,7 +60,7 @@ impl TfIdfLogic {
         documents
             .par_iter()
             .fold(
-                || HashMap::new(),
+                HashMap::new,
                 |mut acc, document| {
                     document
                         .split_whitespace()
@@ -69,7 +69,7 @@ impl TfIdfLogic {
                 },
             )
             .reduce(
-                || HashMap::new(),
+                HashMap::new,
                 |mut acc, hmap| {
                     for (word, count) in hmap {
                         *acc.entry(word).or_insert(0.0) += count;
@@ -110,7 +110,7 @@ impl TfIdfLogic {
             .par_iter()
             .map(|document| document.split_whitespace().collect::<HashSet<&str>>())
             .fold(
-                || HashMap::new(),
+                HashMap::new,
                 |mut acc, unique_words| {
                     unique_words
                         .into_iter()
@@ -119,7 +119,7 @@ impl TfIdfLogic {
                 },
             )
             .reduce(
-                || HashMap::new(),
+                HashMap::new,
                 |mut acc, hmap| {
                     for (word, count) in hmap {
                         *acc.entry(word).or_insert(0.0) += count;
