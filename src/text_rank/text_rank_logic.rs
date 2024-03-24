@@ -83,9 +83,9 @@ fn get_scores(
             .map(|(_, edges)| {
                 score_word(
                     edges,
-                    &node_indexes,
-                    &outgoing_weight_sums,
-                    &prev_scores,
+                    node_indexes,
+                    outgoing_weight_sums,
+                    prev_scores,
                     damping,
                 )
             })
@@ -99,9 +99,9 @@ fn get_scores(
             .map(|edges| {
                 score_word(
                     edges,
-                    &node_indexes,
-                    &outgoing_weight_sums,
-                    &prev_scores,
+                    node_indexes,
+                    outgoing_weight_sums,
+                    prev_scores,
                     damping,
                 )
             })
@@ -148,16 +148,13 @@ impl TextRankLogic {
     ) {
         graph
             .entry(word1)
-            .or_insert_with(HashMap::new)
+            .or_default()
             .entry(word2)
             .and_modify(|e| *e += 1.0)
             .or_insert(1.0);
     }
 
-    fn create_graph<'a>(
-        words: &'a [String],
-        window_size: usize,
-    ) -> HashMap<&'a str, HashMap<&'a str, f32>> {
+    fn create_graph(words: &[String], window_size: usize) -> HashMap<&str, HashMap<&str, f32>> {
         let mut graph = HashMap::new();
 
         words
@@ -209,7 +206,7 @@ impl TextRankLogic {
         damping: f32,
         tol: f32,
     ) -> HashMap<String, f32> {
-        let nodes = graph.keys().into_iter().map(|v| *v).collect::<Vec<&str>>();
+        let nodes = graph.keys().copied().collect::<Vec<&str>>();
         let n = nodes.len();
         let node_indexes = get_node_indexes(&nodes);
         let mut scores = vec![1.0_f32; n];
