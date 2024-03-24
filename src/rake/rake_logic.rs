@@ -112,7 +112,7 @@ impl RakeLogic {
         phrases
             .par_iter()
             .fold(
-                || HashMap::<&str, f32>::new(),
+                HashMap::<&str, f32>::new,
                 |mut acc, phrase| {
                     phrase.iter().for_each(|word| {
                         *acc.entry(word).or_insert(0.0) += 1.0;
@@ -121,7 +121,7 @@ impl RakeLogic {
                 },
             )
             .reduce(
-                || HashMap::<&str, f32>::new(),
+                HashMap::<&str, f32>::new,
                 |mut acc, hmap| {
                     hmap.iter().for_each(|(word, count)| {
                         *acc.entry(word).or_insert(0.0) += count;
@@ -162,7 +162,7 @@ impl RakeLogic {
         phrases
             .par_iter()
             .fold(
-                || HashMap::<&str, f32>::new(),
+                HashMap::<&str, f32>::new,
                 |mut acc, phrase| {
                     let len = phrase.len() as f32 - 1.0;
                     phrase.iter().for_each(|word| {
@@ -174,7 +174,7 @@ impl RakeLogic {
                 },
             )
             .reduce(
-                || HashMap::<&str, f32>::new(),
+                HashMap::<&str, f32>::new,
                 |mut acc, hmap| {
                     hmap.iter().for_each(|(word, degree)| {
                         *acc.entry(word).or_insert(0.0) += degree;
