@@ -15,6 +15,7 @@
 
 use std::collections::HashMap;
 
+// TODO: Simplify (only num of different words matter, left and right can be on the same array)
 pub type ContextRecords<'a> = Vec<(Vec<&'a str>, Vec<&'a str>)>;
 pub type WordContext<'a> = HashMap<String, ContextRecords<'a>>;
 

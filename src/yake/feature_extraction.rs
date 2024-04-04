@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with Rust Keyword Extraction. If not, see <http://www.gnu.org/licenses/>.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -23,15 +23,17 @@ use super::context_builder::WordContext;
 
 pub struct FeaturedWord {
     // Casing
-    cas: f32,
+    cas: f32, // PDone
     // Frequency
-    tf: f32,
+    tf: f32, // Done
     // Positional
-    pos: f32,
+    pos: f32, // Done
     // Relatedness
-    rel: f32,
-    // Difference sentence
-    dif: f32,
+    rel: f32, // Todo
+    // Different sentence
+    dif: f32, // Done
+    // Weight (Page 3 of the paper)
+    weight: f32,
 }
 
 type TfCaps = f32;
@@ -108,12 +110,14 @@ fn calculate_casing(casing_map: CasingMap, weights: TfCasing) -> HashMap<String,
 }
 
 fn calculate_words_positional<'a>(words: &'a [&'a str]) -> HashMap<String, f32> {
+    // The beggining of the sentence is the most important (paper page 2)
+    let length = words.len();
     words
         .iter()
         .enumerate()
         .fold(HashMap::new(), |mut pm, (i, w)| {
             let value = pm.entry(w.to_lowercase()).or_insert((0.0_f32, 0.0_f32));
-            value.0 += i as f32;
+            value.0 += (length - i) as f32;
             value.1 += 1.0;
             pm
         })
@@ -127,11 +131,11 @@ fn calculate_sentence_positional<'a>(sentences: &'a [Vec<&'a str>]) -> HashMap<S
         .iter()
         .map(|sentence| calculate_words_positional(sentence))
         .fold(HashMap::new(), |mut spm, pm| {
-            for (word, pos) in pm {
+            pm.into_iter().for_each(|(word, pos)| {
                 let value = spm.entry(word).or_insert((0.0_f32, 0.0_f32));
                 value.0 += pos;
                 value.1 += 1.0;
-            }
+            });
             spm
         })
         .into_iter()
@@ -164,6 +168,41 @@ fn calculate_positional<'a>(
         .map(|(word, pos)| (word, pos / max_pos))
         .collect()
 }
+
+fn generate_sentence_sets<'a>(sentences: &'a [Vec<&'a str>]) -> Vec<HashSet<String>> {
+    sentences
+        .iter()
+        .map(|sentence| sentence.iter().map(|w| w.to_lowercase()).collect())
+        .collect()
+}
+
+fn calculate_different_sentences<'a>(
+    sentences: &'a [Vec<&'a str>],
+    word: &'a [&'a str],
+) -> HashMap<String, f32> {
+    let sentences_set = generate_sentence_sets(sentences);
+    let words_set = word
+        .iter()
+        .map(|w| w.to_lowercase())
+        .collect::<HashSet<String>>();
+    let length = sentences.len();
+
+    words_set
+        .into_iter()
+        .fold(HashMap::new(), |mut diff_map, word| {
+            let value = sentences_set.iter().fold(0.0, |acc, sentence| {
+                if sentence.contains(&word) {
+                    return acc + 1.0;
+                }
+                acc
+            });
+            diff_map.insert(word, value / length as f32);
+            diff_map
+        })
+}
+
+// More is worse
+// Left vs Right
 
 // TODO: Implement difference sentence (sentence levenstein distance)
 // TODO: Implement relatedness (co-occurrence)
