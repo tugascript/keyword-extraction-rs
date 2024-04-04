@@ -41,14 +41,15 @@ fn create_phrase(
     mut phrases: Vec<String>,
     mut phrase: String,
     base_word: &str,
-    special_char_regex: &Regex,
+    special_char_regex: &Option<Regex>,
     punctuation: &HashSet<String>,
     stopwords: &HashSet<String>,
     length: Option<usize>,
 ) -> (Vec<String>, String) {
-    let word = special_char_regex
-        .replace_all(base_word.trim(), "")
-        .to_lowercase();
+    let word = match special_char_regex {
+        Some(regex) => regex.replace_all(base_word.trim(), "").to_lowercase(),
+        None => base_word.trim().to_lowercase(),
+    };
 
     if !is_punctuation(&word, punctuation) {
         if stopwords.contains(&word) {
@@ -76,7 +77,7 @@ fn create_phrase(
 
 fn process_sentences(
     sentence: &str,
-    special_char_regex: &Regex,
+    special_char_regex: &Option<Regex>,
     punctuation: &HashSet<String>,
     stopwords: &HashSet<String>,
 ) -> String {
@@ -89,7 +90,7 @@ fn process_sentences(
 
 fn process_paragraphs(
     paragraph: &str,
-    special_char_regex: &Regex,
+    special_char_regex: &Option<Regex>,
     punctuation: &HashSet<String>,
     stopwords: &HashSet<String>,
 ) -> Option<String> {
@@ -227,7 +228,11 @@ impl Tokenizer {
         self.basic_phrase_split(&special_char_regex, length)
     }
 
-    fn basic_phrase_split(&self, special_char_regex: &Regex, length: Option<usize>) -> Vec<String> {
+    fn basic_phrase_split(
+        &self,
+        special_char_regex: &Option<Regex>,
+        length: Option<usize>,
+    ) -> Vec<String> {
         let (mut phrases, last_phrase) = self.text.split_word_bounds().fold(
             (Vec::<String>::new(), String::new()),
             |(phrases, acc), w| {
@@ -253,7 +258,7 @@ impl Tokenizer {
     #[cfg(feature = "parallel")]
     fn parallel_phrase_split(
         &self,
-        special_char_regex: &Regex,
+        special_char_regex: &Option<Regex>,
         length: Option<usize>,
     ) -> Vec<String> {
         get_sentence_space_regex()

@@ -54,7 +54,7 @@ impl<'a> DocumentProcessor<'a> {
         }
     }
 
-    fn process_document(&self, document: &str, special_char_regex: &Regex) -> String {
+    fn process_document(&self, document: &str, special_char_regex: &Option<Regex>) -> String {
         document
             .unicode_sentences()
             .map(|s| {

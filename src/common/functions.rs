@@ -21,7 +21,7 @@ use std::{
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
-use regex::Regex;
+use regex::{Regex, RegexBuilder};
 use unicode_segmentation::UnicodeSegmentation;
 
 #[cfg(not(feature = "parallel"))]
@@ -106,8 +106,8 @@ pub fn get_ranked_scores(map: &HashMap<String, f32, RandomState>, n: usize) -> V
     }
 }
 
-pub fn get_special_char_regex() -> Regex {
-    Regex::new(r"('s|,|\.)").unwrap()
+pub fn get_special_char_regex() -> Option<Regex> {
+    Regex::new(r"('s|,|\.)").ok()
 }
 
 pub fn is_punctuation(word: &str, punctuation: &HashSet<String>) -> bool {
@@ -116,15 +116,29 @@ pub fn is_punctuation(word: &str, punctuation: &HashSet<String>) -> bool {
 
 pub fn process_word(
     w: &str,
-    special_char_regex: &Regex,
+    special_char_regex: &Option<Regex>,
     stopwords: &HashSet<String>,
     punctuation: &HashSet<String>,
 ) -> Option<String> {
-    let word = special_char_regex.replace_all(w.trim(), "").to_lowercase();
+    let word = match special_char_regex {
+        Some(regex) => regex.replace_all(w.trim(), "").to_lowercase(),
+        None => w.trim().to_lowercase(),
+    };
 
     if is_punctuation(&word, punctuation) || stopwords.contains(&word) {
         return None;
     }
 
     Some(word)
+}
+
+pub fn get_upper_case_regex() -> Option<Regex> {
+    RegexBuilder::new(r"(^\p{Lu}+$)").unicode(true).build().ok()
+}
+
+pub fn get_capitalized_regex() -> Option<Regex> {
+    RegexBuilder::new(r"(^\p{Lu}[\p{Ll}\p{N}]*+(?:\p{Lu}[\p{Ll}\p{N}]*+)*$)")
+        .unicode(true)
+        .build()
+        .ok()
 }
