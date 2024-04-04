@@ -16,7 +16,7 @@
 use std::collections::HashMap;
 
 pub type ContextRecords<'a> = Vec<(Vec<&'a str>, Vec<&'a str>)>;
-pub type WordContext<'a> = HashMap<&'a str, ContextRecords<'a>>;
+pub type WordContext<'a> = HashMap<String, ContextRecords<'a>>;
 
 pub struct ContextBuilder<'a> {
     sentences: Vec<Vec<&'a str>>,
@@ -52,7 +52,7 @@ impl<'a> ContextBuilder<'a> {
                         .collect();
 
                     // Insert the contexts into the accumulator HashMap.
-                    ctx.entry(*word)
+                    ctx.entry(word.to_lowercase())
                         .or_insert_with(Vec::new)
                         .push((left_context, right_context));
                 });
