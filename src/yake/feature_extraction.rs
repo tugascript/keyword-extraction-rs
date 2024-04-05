@@ -174,7 +174,11 @@ fn calculate_different_sentences<'a>(
         })
 }
 
-fn calculate_relatedness<'a>(sentences: &'a [Vec<&'a str>], ngram: usize) -> HashMap<String, f32> {
+fn calculate_relatedness<'a>(
+    diff: &'a HashMap<String, f32>,
+    sentences: &'a [Vec<&'a str>],
+    ngram: usize,
+) -> HashMap<String, f32> {
     let rel = ContextBuilder::new(sentences, ngram)
         .build()
         .into_iter()
@@ -189,6 +193,9 @@ fn calculate_relatedness<'a>(sentences: &'a [Vec<&'a str>], ngram: usize) -> Has
         })
         .unwrap_or(1.0);
     rel.into_iter()
-        .map(|(word, value)| (word, value / max))
+        .map(|(word, value)| {
+            let diff_value = diff.get(&word).unwrap_or(&0.0);
+            (word, (1.0 - (value / max)) * diff_value)
+        })
         .collect()
 }
