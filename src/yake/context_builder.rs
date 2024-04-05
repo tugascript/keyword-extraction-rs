@@ -13,23 +13,18 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with Rust Keyword Extraction. If not, see <http://www.gnu.org/licenses/>.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
-// TODO: Simplify (only num of different words matter, left and right can be on the same array)
-pub type ContextRecords<'a> = Vec<(Vec<&'a str>, Vec<&'a str>)>;
-pub type WordContext<'a> = HashMap<String, ContextRecords<'a>>;
+pub type WordContext<'a> = HashMap<String, HashSet<String>>;
 
 pub struct ContextBuilder<'a> {
-    sentences: Vec<Vec<&'a str>>,
-    window_size: usize,
+    sentences: &'a [Vec<&'a str>],
+    ngram: usize,
 }
 
 impl<'a> ContextBuilder<'a> {
-    pub fn new(sentences: Vec<Vec<&'a str>>, window_size: usize) -> Self {
-        Self {
-            sentences,
-            window_size,
-        }
+    pub fn new(sentences: &'a [Vec<&'a str>], ngram: usize) -> Self {
+        Self { sentences, ngram }
     }
 
     pub fn build(&self) -> WordContext<'a> {
@@ -37,25 +32,23 @@ impl<'a> ContextBuilder<'a> {
             .iter()
             .fold(HashMap::new(), |mut ctx, sentence| {
                 sentence.iter().enumerate().for_each(|(i, word)| {
-                    let left_context = sentence
+                    let ctx = ctx.entry(word.to_lowercase()).or_insert(HashSet::new());
+                    sentence
                         .iter()
                         .take(i)
                         .rev()
-                        .take(self.window_size)
+                        .take(self.ngram)
                         .rev()
-                        .copied()
-                        .collect();
-                    let right_context = sentence
+                        .for_each(|word| {
+                            ctx.insert(word.to_lowercase());
+                        });
+                    sentence
                         .iter()
                         .skip(i + 1)
-                        .take(self.window_size)
-                        .copied()
-                        .collect();
-
-                    // Insert the contexts into the accumulator HashMap.
-                    ctx.entry(word.to_lowercase())
-                        .or_insert_with(Vec::new)
-                        .push((left_context, right_context));
+                        .take(self.ngram)
+                        .for_each(|word| {
+                            ctx.insert(word.to_lowercase());
+                        });
                 });
                 ctx
             })

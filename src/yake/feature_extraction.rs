@@ -19,17 +19,17 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use crate::common::{get_capitalized_regex, get_upper_case_regex};
 
-use super::context_builder::WordContext;
+use super::context_builder::{ContextBuilder, WordContext};
 
 pub struct FeaturedWord {
     // Casing
-    cas: f32, // PDone
+    cas: f32, // Done
     // Frequency
     tf: f32, // Done
     // Positional
     pos: f32, // Done
     // Relatedness
-    rel: f32, // Todo
+    rel: f32, // Done
     // Different sentence
     dif: f32, // Done
     // Weight (Page 3 of the paper)
@@ -86,14 +86,6 @@ fn generate_casing_map<'a>(words: &'a [&'a str]) -> CasingMap {
     })
 }
 
-fn calculate_tf(casing_map: CasingMap) -> HashMap<String, f32> {
-    let total = casing_map.values().fold(0.0, |acc, v| acc + v.2);
-    casing_map
-        .into_iter()
-        .map(|(word, (_, _, all))| (word, all / total))
-        .collect()
-}
-
 fn calculate_casing(casing_map: CasingMap, weights: TfCasing) -> HashMap<String, f32> {
     let (total_caps, total_upper, total) = casing_map.values().fold((0.0, 0.0, 0.0), |acc, v| {
         (acc.0 + v.0, acc.1 + v.1, acc.2 + v.2)
@@ -106,6 +98,14 @@ fn calculate_casing(casing_map: CasingMap, weights: TfCasing) -> HashMap<String,
                 + weights.2 * (all / total);
             (word, value / total)
         })
+        .collect()
+}
+
+fn calculate_tf(casing_map: CasingMap) -> HashMap<String, f32> {
+    let total = casing_map.values().fold(0.0, |acc, v| acc + v.2);
+    casing_map
+        .into_iter()
+        .map(|(word, (_, _, all))| (word, all / total))
         .collect()
 }
 
@@ -126,44 +126,17 @@ fn calculate_words_positional<'a>(words: &'a [&'a str]) -> HashMap<String, f32> 
         .collect()
 }
 
-fn calculate_sentence_positional<'a>(sentences: &'a [Vec<&'a str>]) -> HashMap<String, f32> {
-    sentences
-        .iter()
-        .map(|sentence| calculate_words_positional(sentence))
-        .fold(HashMap::new(), |mut spm, pm| {
-            pm.into_iter().for_each(|(word, pos)| {
-                let value = spm.entry(word).or_insert((0.0_f32, 0.0_f32));
-                value.0 += pos;
-                value.1 += 1.0;
-            });
-            spm
-        })
-        .into_iter()
-        .map(|(word, (pos, sf))| (word, pos / sf))
-        .collect()
-}
-
-fn calculate_positional<'a>(
-    words: &'a [&'a str],
-    sentences: &'a [Vec<&'a str>],
-) -> HashMap<String, f32> {
+fn calculate_positional<'a>(words: &'a [&'a str]) -> HashMap<String, f32> {
     let words_map = calculate_words_positional(words);
-    let sentences_map = calculate_sentence_positional(sentences);
-    let pos_map = words_map
-        .into_iter()
-        .map(|(word, pos)| {
-            let sentence_pos = sentences_map.get(&word).unwrap_or(&0.0);
-            (word, pos - sentence_pos)
-        })
-        .collect::<HashMap<String, f32>>();
-    let max_pos = *pos_map
-        .values()
+    let max_pos = words_map
+        .iter()
+        .map(|(_, v)| *v)
         .max_by(|a, b| match a.partial_cmp(b) {
             Some(order) => order,
             None => std::cmp::Ordering::Equal,
         })
-        .unwrap_or(&1.0);
-    pos_map
+        .unwrap_or(1.0);
+    words_map
         .into_iter()
         .map(|(word, pos)| (word, pos / max_pos))
         .collect()
@@ -201,8 +174,21 @@ fn calculate_different_sentences<'a>(
         })
 }
 
-// More is worse
-// Left vs Right
-
-// TODO: Implement difference sentence (sentence levenstein distance)
-// TODO: Implement relatedness (co-occurrence)
+fn calculate_relatedness<'a>(sentences: &'a [Vec<&'a str>], ngram: usize) -> HashMap<String, f32> {
+    let rel = ContextBuilder::new(sentences, ngram)
+        .build()
+        .into_iter()
+        .map(|(word, set)| (word, set.len() as f32))
+        .collect::<HashMap<String, f32>>();
+    let max = rel
+        .iter()
+        .map(|(_, v)| *v)
+        .max_by(|a, b| match a.partial_cmp(b) {
+            Some(order) => order,
+            None => std::cmp::Ordering::Equal,
+        })
+        .unwrap_or(1.0);
+    rel.into_iter()
+        .map(|(word, value)| (word, value / max))
+        .collect()
+}
