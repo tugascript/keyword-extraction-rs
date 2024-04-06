@@ -15,16 +15,19 @@
 
 use std::collections::{HashMap, HashSet};
 
-pub type WordContext<'a> = HashMap<String, HashSet<String>>;
+pub type WordContext<'a> = HashMap<String, (HashSet<String>, HashSet<String>)>;
 
 pub struct ContextBuilder<'a> {
     sentences: &'a [Vec<&'a str>],
-    ngram: usize,
+    window_size: usize,
 }
 
 impl<'a> ContextBuilder<'a> {
-    pub fn new(sentences: &'a [Vec<&'a str>], ngram: usize) -> Self {
-        Self { sentences, ngram }
+    pub fn new(sentences: &'a [Vec<&'a str>], window_size: usize) -> Self {
+        Self {
+            sentences,
+            window_size,
+        }
     }
 
     pub fn build(&self) -> WordContext<'a> {
@@ -32,22 +35,24 @@ impl<'a> ContextBuilder<'a> {
             .iter()
             .fold(HashMap::new(), |mut ctx, sentence| {
                 sentence.iter().enumerate().for_each(|(i, word)| {
-                    let ctx = ctx.entry(word.to_lowercase()).or_insert(HashSet::new());
+                    let ctx = ctx
+                        .entry(word.to_lowercase())
+                        .or_insert((HashSet::new(), HashSet::new()));
                     sentence
                         .iter()
                         .take(i)
                         .rev()
-                        .take(self.ngram)
+                        .take(self.window_size)
                         .rev()
                         .for_each(|word| {
-                            ctx.insert(word.to_lowercase());
+                            ctx.0.insert(word.to_lowercase());
                         });
                     sentence
                         .iter()
                         .skip(i + 1)
-                        .take(self.ngram)
+                        .take(self.window_size)
                         .for_each(|word| {
-                            ctx.insert(word.to_lowercase());
+                            ctx.1.insert(word.to_lowercase());
                         });
                 });
                 ctx

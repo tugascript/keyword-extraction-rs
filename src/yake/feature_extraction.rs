@@ -21,6 +21,10 @@ use crate::common::{get_capitalized_regex, get_upper_case_regex};
 
 use super::context_builder::{ContextBuilder, WordContext};
 
+/**
+ * Formula:
+ *  H = (WPos * WRel) / (WCas + (WFreq/WRel) + (WDif/WRel))
+**/
 pub struct FeaturedWord {
     // Casing
     cas: f32, // Done
@@ -32,8 +36,6 @@ pub struct FeaturedWord {
     rel: f32, // Done
     // Different sentence
     dif: f32, // Done
-    // Weight (Page 3 of the paper)
-    weight: f32,
 }
 
 type TfCaps = f32;
@@ -86,59 +88,62 @@ fn generate_casing_map<'a>(words: &'a [&'a str]) -> CasingMap {
     })
 }
 
-fn calculate_casing(casing_map: CasingMap, weights: TfCasing) -> HashMap<String, f32> {
-    let (total_caps, total_upper, total) = casing_map.values().fold((0.0, 0.0, 0.0), |acc, v| {
-        (acc.0 + v.0, acc.1 + v.1, acc.2 + v.2)
-    });
+/**
+ * Formula:
+ * WCase = MAX(TfCaps, TfUpper) / (1 + ln(TfAll))
+**/
+fn calculate_casing(casing_map: CasingMap) -> HashMap<String, f32> {
     casing_map
         .into_iter()
         .map(|(word, (caps, upper, all))| {
-            let value = weights.0 * (caps / total_caps)
-                + weights.1 * (upper / total_upper)
-                + weights.2 * (all / total);
-            (word, value / total)
+            let max = if caps > upper { caps } else { upper };
+            (word, max / (1.0 + all.ln()))
         })
         .collect()
 }
 
+/**
+ * Formula:
+ * WFreq = TfAll / (avgTf + stdTf)
+**/
 fn calculate_tf(casing_map: CasingMap) -> HashMap<String, f32> {
-    let total = casing_map.values().fold(0.0, |acc, v| acc + v.2);
+    let count = casing_map.len() as f32;
+    let avg = casing_map.values().fold(0.0, |acc, v| acc + v.2) / count;
+    let std = casing_map
+        .values()
+        .fold(0.0, |acc, v| (acc + (v.2 - avg).powi(2)) / count)
+        .sqrt();
     casing_map
         .into_iter()
-        .map(|(word, (_, _, all))| (word, all / total))
+        .map(|(word, (_, _, all))| (word, all / (avg + std)))
         .collect()
 }
 
-fn calculate_words_positional<'a>(words: &'a [&'a str]) -> HashMap<String, f32> {
-    // The beggining of the sentence is the most important (paper page 2)
-    let length = words.len();
+/**
+ * Formula:
+ * WPos = ln(ln(3 + med(pos)))
+**/
+fn calculate_positional<'a>(words: &'a [&'a str]) -> HashMap<String, f32> {
     words
         .iter()
         .enumerate()
         .fold(HashMap::new(), |mut pm, (i, w)| {
-            let value = pm.entry(w.to_lowercase()).or_insert((0.0_f32, 0.0_f32));
-            value.0 += (length - i) as f32;
-            value.1 += 1.0;
+            let value = pm.entry(w.to_lowercase()).or_insert(Vec::new());
+            value.push(i);
             pm
         })
         .into_iter()
-        .map(|(word, (pos, tf))| (word, pos / tf))
-        .collect()
-}
+        .map(|(word, positions)| {
+            let length = positions.len();
+            let median = if length % 2 == 0 {
+                let mid = length / 2;
+                (positions[mid] + positions[mid - 1]) as f32 / 2.0
+            } else {
+                positions[length / 2] as f32
+            };
 
-fn calculate_positional<'a>(words: &'a [&'a str]) -> HashMap<String, f32> {
-    let words_map = calculate_words_positional(words);
-    let max_pos = words_map
-        .iter()
-        .map(|(_, v)| *v)
-        .max_by(|a, b| match a.partial_cmp(b) {
-            Some(order) => order,
-            None => std::cmp::Ordering::Equal,
+            (word, (3.0 + median).ln().ln())
         })
-        .unwrap_or(1.0);
-    words_map
-        .into_iter()
-        .map(|(word, pos)| (word, pos / max_pos))
         .collect()
 }
 
@@ -149,6 +154,10 @@ fn generate_sentence_sets<'a>(sentences: &'a [Vec<&'a str>]) -> Vec<HashSet<Stri
         .collect()
 }
 
+/**
+ * Formula:
+ * WDif = Unique Sentences with word / Total Sentences
+**/
 fn calculate_different_sentences<'a>(
     sentences: &'a [Vec<&'a str>],
     word: &'a [&'a str],
@@ -174,28 +183,14 @@ fn calculate_different_sentences<'a>(
         })
 }
 
+/**
+ * Formula:
+ * WRel = 0.5 * ((Wdl/Wil) + (Wdr/Wir))
+**/
 fn calculate_relatedness<'a>(
     diff: &'a HashMap<String, f32>,
     sentences: &'a [Vec<&'a str>],
     ngram: usize,
 ) -> HashMap<String, f32> {
-    let rel = ContextBuilder::new(sentences, ngram)
-        .build()
-        .into_iter()
-        .map(|(word, set)| (word, set.len() as f32))
-        .collect::<HashMap<String, f32>>();
-    let max = rel
-        .iter()
-        .map(|(_, v)| *v)
-        .max_by(|a, b| match a.partial_cmp(b) {
-            Some(order) => order,
-            None => std::cmp::Ordering::Equal,
-        })
-        .unwrap_or(1.0);
-    rel.into_iter()
-        .map(|(word, value)| {
-            let diff_value = diff.get(&word).unwrap_or(&0.0);
-            (word, (1.0 - (value / max)) * diff_value)
-        })
-        .collect()
+    todo!()
 }
