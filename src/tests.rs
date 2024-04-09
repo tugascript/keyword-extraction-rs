@@ -425,6 +425,7 @@ fn test_tf_idf() {
     assert!(is_percent_in_hashset(&words_result, &expected_words, 85.0));
 }
 
+#[cfg(feature = "co_occurrence")]
 #[test]
 fn test_co_occurrence() {
     let documents =

@@ -16,4 +16,3 @@
 mod context_builder;
 mod feature_extraction;
 mod levenshtein;
-mod simple_tokenizer;

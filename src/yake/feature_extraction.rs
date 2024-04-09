@@ -19,8 +19,6 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use crate::common::{get_capitalized_regex, get_upper_case_regex};
 
-use super::context_builder::{ContextBuilder, WordContext};
-
 /**
  * Formula:
  *  H = (WPos * WRel) / (WCas + (WFreq/WRel) + (WDif/WRel))
@@ -45,9 +43,8 @@ type TfCasing = (TfCaps, TfUpper, TfAll);
 type CasingMap = HashMap<String, TfCasing>;
 
 pub struct FeatureExtraction<'a> {
-    words: Vec<&'a str>,
     sentences: Vec<Vec<&'a str>>,
-    context: WordContext<'a>,
+    words: Vec<&'a str>,
 }
 
 fn generate_casing_map<'a>(words: &'a [&'a str]) -> CasingMap {
@@ -147,50 +144,54 @@ fn calculate_positional<'a>(words: &'a [&'a str]) -> HashMap<String, f32> {
         .collect()
 }
 
-fn generate_sentence_sets<'a>(sentences: &'a [Vec<&'a str>]) -> Vec<HashSet<String>> {
-    sentences
-        .iter()
-        .map(|sentence| sentence.iter().map(|w| w.to_lowercase()).collect())
-        .collect()
-}
-
 /**
  * Formula:
  * WDif = Unique Sentences with word / Total Sentences
 **/
 fn calculate_different_sentences<'a>(
     sentences: &'a [Vec<&'a str>],
-    word: &'a [&'a str],
+    right_left_context: &'a HashMap<String, Vec<(Vec<&'a str>, Vec<&'a str>)>>,
 ) -> HashMap<String, f32> {
-    let sentences_set = generate_sentence_sets(sentences);
-    let words_set = word
+    let length = sentences.len() as f32;
+    right_left_context
         .iter()
-        .map(|w| w.to_lowercase())
-        .collect::<HashSet<String>>();
-    let length = sentences.len();
-
-    words_set
-        .into_iter()
-        .fold(HashMap::new(), |mut diff_map, word| {
-            let value = sentences_set.iter().fold(0.0, |acc, sentence| {
-                if sentence.contains(&word) {
-                    return acc + 1.0;
-                }
-                acc
-            });
-            diff_map.insert(word, value / length as f32);
-            diff_map
-        })
+        .map(|(key, val)| (key.to_owned(), val.len() as f32 / length))
+        .collect()
 }
 
 /**
  * Formula:
- * WRel = 0.5 * ((Wdl/Wil) + (Wdr/Wir))
+ * WRel = ((Wdl/Wil) + (Wdr/Wir)) / 2
 **/
 fn calculate_relatedness<'a>(
-    diff: &'a HashMap<String, f32>,
-    sentences: &'a [Vec<&'a str>],
-    ngram: usize,
-) -> HashMap<String, f32> {
-    todo!()
+    right_left_context: &'a HashMap<String, Vec<(Vec<&'a str>, Vec<&'a str>)>>,
+) -> HashMap<&'a str, f32> {
+    right_left_context
+        .iter()
+        .map(|(word, contexts)| {
+            let context_length = contexts.len() as f32;
+            let (left_unique, left_total, right_unique, right_total) = contexts.iter().fold(
+                (HashSet::new(), 0.0, HashSet::new(), 0.0),
+                |(mut left_unique, mut left_total, mut right_unique, mut right_total),
+                 (left, right)| {
+                    left.iter().for_each(|w| {
+                        left_unique.insert(w.to_lowercase());
+                        left_total += 1.0;
+                    });
+                    right.iter().for_each(|w| {
+                        right_unique.insert(w.to_lowercase());
+                        right_total += 1.0;
+                    });
+                    (left_unique, left_total, right_unique, right_total)
+                },
+            );
+
+            let wdl = left_unique.len() as f32 / context_length;
+            let wdr = right_unique.len() as f32 / context_length;
+            let wil = left_total + f32::EPSILON;
+            let wir = right_total + f32::EPSILON;
+
+            (word.as_str(), ((wdl / wil) + (wdr / wir)) / 2.0)
+        })
+        .collect()
 }
