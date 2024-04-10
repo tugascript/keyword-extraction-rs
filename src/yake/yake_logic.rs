@@ -98,7 +98,7 @@ impl YakeLogic {
         candidates
             .iter()
             .fold(HashMap::new(), |mut acc, candidate| {
-                let (product, sum) = candidate.iter().fold((0.0, 0.0), |acc, word| {
+                let (product, sum) = candidate.iter().fold((1.0, 0.0), |acc, word| {
                     let word = word.to_lowercase();
                     let value = feature_extraction
                         .get_feature_score(&word)

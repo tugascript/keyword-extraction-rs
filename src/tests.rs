@@ -545,3 +545,30 @@ fn test_text_rank() {
         assert!(phrase.split_whitespace().count() <= 3);
     }
 }
+
+#[cfg(feature = "yake")]
+#[test]
+fn test_yake() {
+    let yake = yake::Yake::new(yake::YakeParams::WithDefaults(TEXT, &get_stop_words()));
+    let yake_result = [
+        "motivated junior rust",
+        "motivated junior",
+        "job description",
+        "developer job description",
+        "rust developer",
+        "developer job",
+        "junior rust developer",
+        "rust developer job",
+        "junior rust",
+        "rust programming language",
+    ];
+    println!("{:?}", yake.get_ranked_keyword_scores(10));
+    assert!(is_percent_in_hashset(
+        &yake.get_ranked_keywords(10),
+        &yake_result
+            .iter()
+            .map(|x| x.to_string())
+            .collect::<HashSet<String>>(),
+        90.0
+    ));
+}
