@@ -22,13 +22,8 @@ use super::{
 
 pub struct YakeLogic;
 
-// Filter Pre Candidates into Candidates
-// Note: this reverses the order, but order is not important for the final calculation
 impl YakeLogic {
-    pub fn build_yake<'a>(
-        context_builder: ContextBuilder<'a>,
-        threshold: f32,
-    ) -> HashMap<String, f32> {
+    pub fn build_yake(context_builder: ContextBuilder<'_>, threshold: f32) -> HashMap<String, f32> {
         let words = context_builder.build_words();
         let sentences = context_builder.build_sentences();
         let right_left_context = context_builder.build_right_left_context(&sentences);
@@ -66,6 +61,8 @@ impl YakeLogic {
             .collect()
     }
 
+    // Filter Pre Candidates into Candidates
+    // Note: this reverses the order, but order is not important for the final calculation
     fn filter_candidates<'a>(
         pre_candidates: &'a [Vec<&'a str>],
         threshold: f32,
@@ -75,9 +72,10 @@ impl YakeLogic {
             .enumerate()
             .rev()
             .filter_map(|(i, candidate)| {
-                for j in 0..i {
-                    let current = candidate.join(" ").to_lowercase();
-                    let other = pre_candidates[j].join(" ").to_lowercase();
+                let current = candidate.join(" ").to_lowercase();
+
+                for pre_candidate in pre_candidates.iter().take(i) {
+                    let other = pre_candidate.join(" ").to_lowercase();
                     let lev = Levenshtein::new(&current, &other);
                     if lev.ratio() >= threshold {
                         return None;
@@ -92,8 +90,8 @@ impl YakeLogic {
      * Formula
      * S(kw) = Π(H) / TF(kw)(1 + Σ(H))
      **/
-    fn score_candidates<'a>(
-        candidates: Vec<Vec<&'a str>>,
+    fn score_candidates(
+        candidates: Vec<Vec<&str>>,
         tfk: HashMap<String, f32>,
         feature_extraction: FeatureExtraction,
     ) -> HashMap<String, f32> {

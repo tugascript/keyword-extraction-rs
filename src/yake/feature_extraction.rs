@@ -19,6 +19,8 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use crate::common::{get_capitalized_regex, get_upper_case_regex};
 
+use super::context_builder::RightLeftContext;
+
 type TfCaps = f32;
 type TfUpper = f32;
 type TfAll = f32;
@@ -37,7 +39,7 @@ impl<'a> FeatureExtraction {
     pub fn new(
         sentences: &'a [Vec<&'a str>],
         words: &'a [&'a str],
-        right_left_context: HashMap<String, Vec<(Vec<&'a str>, Vec<&'a str>)>>,
+        right_left_context: RightLeftContext<'a>,
     ) -> Self {
         let casing_map = generate_casing_map(words);
         let cas = calculate_casing(&casing_map);
@@ -48,8 +50,8 @@ impl<'a> FeatureExtraction {
 
         Self {
             features: right_left_context
-                .iter()
-                .map(|(word, _)| {
+                .keys()
+                .map(|word| {
                     let word = word.as_str();
                     let wcas = *cas.get(word).unwrap_or(&f32::EPSILON);
                     let wfreq = *tf.get(word).unwrap_or(&0.0);
@@ -113,7 +115,7 @@ fn generate_casing_map<'a>(words: &'a [&'a str]) -> CasingMap {
  * Formula:
  * WCase = MAX(TfCaps, TfUpper) / (1 + ln(TfAll))
 **/
-fn calculate_casing<'a>(casing_map: &'a CasingMap) -> HashMap<&'a str, f32> {
+fn calculate_casing(casing_map: &CasingMap) -> HashMap<&str, f32> {
     casing_map
         .iter()
         .map(|(word, (caps, upper, all))| {
@@ -127,7 +129,7 @@ fn calculate_casing<'a>(casing_map: &'a CasingMap) -> HashMap<&'a str, f32> {
  * Formula:
  * WFreq = TfAll / (avgTf + stdTf)
 **/
-fn calculate_tf<'a>(casing_map: &'a CasingMap) -> HashMap<&'a str, f32> {
+fn calculate_tf(casing_map: &CasingMap) -> HashMap<&str, f32> {
     let count = casing_map.len() as f32 + f32::EPSILON;
     let avg = casing_map.values().fold(0.0, |acc, v| acc + v.2) / count;
     let std = casing_map
@@ -149,7 +151,7 @@ fn calculate_positional<'a>(words: &'a [&'a str]) -> HashMap<String, f32> {
         .iter()
         .enumerate()
         .fold(HashMap::new(), |mut pm, (i, w)| {
-            let value = pm.entry(w.to_lowercase()).or_insert(Vec::new());
+            let value: &mut Vec<usize> = pm.entry(w.to_lowercase()).or_default();
             value.push(i);
             pm
         })
@@ -174,7 +176,7 @@ fn calculate_positional<'a>(words: &'a [&'a str]) -> HashMap<String, f32> {
 **/
 fn calculate_different_sentences<'a>(
     sentences: &'a [Vec<&'a str>],
-    right_left_context: &'a HashMap<String, Vec<(Vec<&'a str>, Vec<&'a str>)>>,
+    right_left_context: &'a RightLeftContext<'a>,
 ) -> HashMap<&'a str, f32> {
     let length = sentences.len() as f32 + f32::EPSILON;
     right_left_context
@@ -189,7 +191,7 @@ fn calculate_different_sentences<'a>(
 **/
 fn calculate_relatedness<'a>(
     sentences: &'a [Vec<&'a str>],
-    right_left_context: &'a HashMap<String, Vec<(Vec<&'a str>, Vec<&'a str>)>>,
+    right_left_context: &'a RightLeftContext<'a>,
 ) -> HashMap<&'a str, f32> {
     let length = sentences.len() as f32;
     right_left_context

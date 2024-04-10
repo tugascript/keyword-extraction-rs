@@ -17,8 +17,8 @@ use std::collections::{HashMap, HashSet};
 
 use unicode_segmentation::UnicodeSegmentation;
 
-// use super::levenshtein::Levenshtein;
-use crate::common::PUNCTUATION;
+type RightLeftContextItem<'a> = Vec<(Vec<&'a str>, Vec<&'a str>)>;
+pub type RightLeftContext<'a> = HashMap<String, RightLeftContextItem<'a>>;
 
 fn process_word<'a>(
     word: &'a str,
@@ -34,7 +34,7 @@ fn process_word<'a>(
     Some(word)
 }
 
-fn process_ngrams<'a>(candidate: Vec<&'a str>) -> Vec<Vec<&'a str>> {
+fn process_ngrams(candidate: Vec<&str>) -> Vec<Vec<&str>> {
     (0..candidate.len())
         .rev()
         .map(|i| candidate[0..=i].to_vec())
@@ -72,10 +72,10 @@ fn process_candidates<'a>(
 fn build_right_left_context<'a>(
     sentences: &'a [Vec<&'a str>],
     window_size: usize,
-) -> HashMap<String, Vec<(Vec<&'a str>, Vec<&'a str>)>> {
+) -> RightLeftContext<'a> {
     sentences.iter().fold(HashMap::new(), |mut ctx, sentence| {
         sentence.iter().enumerate().for_each(|(i, word)| {
-            let entry = ctx.entry(word.to_lowercase()).or_insert(Vec::new());
+            let entry: &mut RightLeftContextItem = ctx.entry(word.to_lowercase()).or_default();
             let left = sentence
                 .iter()
                 .take(i)
@@ -168,7 +168,7 @@ impl<'a> ContextBuilder<'a> {
     pub fn build_right_left_context(
         &'a self,
         sentences: &'a [Vec<&'a str>],
-    ) -> HashMap<String, Vec<(Vec<&'a str>, Vec<&'a str>)>> {
+    ) -> RightLeftContext<'a> {
         build_right_left_context(sentences, self.window_size)
     }
     // -- CONTEXT BUILDER END --
