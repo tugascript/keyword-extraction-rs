@@ -27,6 +27,7 @@ pub mod text_rank;
 #[cfg(feature = "tf_idf")]
 pub mod tf_idf;
 
+#[cfg(feature = "yake")]
 pub mod yake;
 
 pub mod tokenizer;
