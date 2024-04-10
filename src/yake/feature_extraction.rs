@@ -19,32 +19,56 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use crate::common::{get_capitalized_regex, get_upper_case_regex};
 
-/**
- * Formula:
- *  H = (WPos * WRel) / (WCas + (WFreq/WRel) + (WDif/WRel))
-**/
-pub struct FeaturedWord {
-    // Casing
-    cas: f32, // Done
-    // Frequency
-    tf: f32, // Done
-    // Positional
-    pos: f32, // Done
-    // Relatedness
-    rel: f32, // Done
-    // Different sentence
-    dif: f32, // Done
-}
-
 type TfCaps = f32;
 type TfUpper = f32;
 type TfAll = f32;
 type TfCasing = (TfCaps, TfUpper, TfAll);
 type CasingMap = HashMap<String, TfCasing>;
 
-pub struct FeatureExtraction<'a> {
-    sentences: Vec<Vec<&'a str>>,
-    words: Vec<&'a str>,
+pub struct FeatureExtraction {
+    features: HashMap<String, f32>,
+}
+
+impl<'a> FeatureExtraction {
+    /**
+     * Formula:
+     *  H = (WPos * WRel) / (WCas + (WFreq/WRel) + (WDif/WRel))
+     **/
+    pub fn new(
+        sentences: &'a [Vec<&'a str>],
+        words: &'a [&'a str],
+        right_left_context: HashMap<String, Vec<(Vec<&'a str>, Vec<&'a str>)>>,
+    ) -> Self {
+        let casing_map = generate_casing_map(words);
+        let cas = calculate_casing(&casing_map);
+        let tf = calculate_tf(&casing_map);
+        let pos = calculate_positional(words);
+        let rel = calculate_relatedness(sentences, &right_left_context);
+        let dif = calculate_different_sentences(sentences, &right_left_context);
+
+        Self {
+            features: right_left_context
+                .iter()
+                .map(|(word, _)| {
+                    let word = word.as_str();
+                    let wcas = *cas.get(word).unwrap_or(&f32::EPSILON);
+                    let wfreq = *tf.get(word).unwrap_or(&0.0);
+                    let wpos = *pos.get(word).unwrap_or(&0.0);
+                    let wrel = *rel.get(word).unwrap_or(&f32::EPSILON);
+                    let wdif = *dif.get(word).unwrap_or(&0.0);
+
+                    (
+                        word.to_string(),
+                        (wpos * wrel) / (wcas + (wfreq / wrel) + (wdif / wrel)),
+                    )
+                })
+                .collect(),
+        }
+    }
+
+    pub fn get_feature_score(&self, word: &str) -> Option<f32> {
+        self.features.get(word).copied()
+    }
 }
 
 fn generate_casing_map<'a>(words: &'a [&'a str]) -> CasingMap {
@@ -89,12 +113,12 @@ fn generate_casing_map<'a>(words: &'a [&'a str]) -> CasingMap {
  * Formula:
  * WCase = MAX(TfCaps, TfUpper) / (1 + ln(TfAll))
 **/
-fn calculate_casing(casing_map: CasingMap) -> HashMap<String, f32> {
+fn calculate_casing<'a>(casing_map: &'a CasingMap) -> HashMap<&'a str, f32> {
     casing_map
-        .into_iter()
+        .iter()
         .map(|(word, (caps, upper, all))| {
             let max = if caps > upper { caps } else { upper };
-            (word, max / (1.0 + all.ln()))
+            (word.as_str(), max / (1.0 + all.ln()))
         })
         .collect()
 }
@@ -103,16 +127,16 @@ fn calculate_casing(casing_map: CasingMap) -> HashMap<String, f32> {
  * Formula:
  * WFreq = TfAll / (avgTf + stdTf)
 **/
-fn calculate_tf(casing_map: CasingMap) -> HashMap<String, f32> {
-    let count = casing_map.len() as f32;
+fn calculate_tf<'a>(casing_map: &'a CasingMap) -> HashMap<&'a str, f32> {
+    let count = casing_map.len() as f32 + f32::EPSILON;
     let avg = casing_map.values().fold(0.0, |acc, v| acc + v.2) / count;
     let std = casing_map
         .values()
         .fold(0.0, |acc, v| (acc + (v.2 - avg).powi(2)) / count)
         .sqrt();
     casing_map
-        .into_iter()
-        .map(|(word, (_, _, all))| (word, all / (avg + std)))
+        .iter()
+        .map(|(word, (_, _, all))| (word.as_str(), all / (avg + std + f32::EPSILON)))
         .collect()
 }
 
@@ -151,11 +175,11 @@ fn calculate_positional<'a>(words: &'a [&'a str]) -> HashMap<String, f32> {
 fn calculate_different_sentences<'a>(
     sentences: &'a [Vec<&'a str>],
     right_left_context: &'a HashMap<String, Vec<(Vec<&'a str>, Vec<&'a str>)>>,
-) -> HashMap<String, f32> {
-    let length = sentences.len() as f32;
+) -> HashMap<&'a str, f32> {
+    let length = sentences.len() as f32 + f32::EPSILON;
     right_left_context
         .iter()
-        .map(|(key, val)| (key.to_owned(), val.len() as f32 / length))
+        .map(|(key, val)| (key.as_str(), val.len() as f32 / length))
         .collect()
 }
 
@@ -164,8 +188,10 @@ fn calculate_different_sentences<'a>(
  * WRel = ((Wdl/Wil) + (Wdr/Wir)) / 2
 **/
 fn calculate_relatedness<'a>(
+    sentences: &'a [Vec<&'a str>],
     right_left_context: &'a HashMap<String, Vec<(Vec<&'a str>, Vec<&'a str>)>>,
 ) -> HashMap<&'a str, f32> {
+    let length = sentences.len() as f32;
     right_left_context
         .iter()
         .map(|(word, contexts)| {
@@ -186,8 +212,9 @@ fn calculate_relatedness<'a>(
                 },
             );
 
-            let wdl = left_unique.len() as f32 / context_length;
-            let wdr = right_unique.len() as f32 / context_length;
+            let dif = (context_length / length) + f32::EPSILON;
+            let wdl = left_unique.len() as f32 / dif;
+            let wdr = right_unique.len() as f32 / dif;
             let wil = left_total + f32::EPSILON;
             let wir = right_total + f32::EPSILON;
 

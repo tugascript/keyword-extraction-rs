@@ -17,7 +17,7 @@ use std::collections::{HashMap, HashSet};
 
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::levenshtein::Levenshtein;
+// use super::levenshtein::Levenshtein;
 use crate::common::PUNCTUATION;
 
 fn process_word<'a>(
@@ -69,26 +69,6 @@ fn process_candidates<'a>(
     (candidates, candidate)
 }
 
-// Note: this reverses the order, but order is not important for the final calculation
-fn filter_candidates<'a>(candidates: Vec<Vec<&'a str>>, threshold: f32) -> Vec<Vec<&'a str>> {
-    candidates
-        .iter()
-        .enumerate()
-        .rev()
-        .filter_map(|(i, candidate)| {
-            for j in 0..i {
-                let current = candidate.join(" ").to_lowercase();
-                let other = candidates[j].join(" ").to_lowercase();
-                let lev = Levenshtein::new(&current, &other);
-                if lev.ratio() >= threshold {
-                    return None;
-                }
-            }
-            Some(candidate.to_vec())
-        })
-        .collect::<Vec<Vec<&'a str>>>()
-}
-
 fn build_right_left_context<'a>(
     sentences: &'a [Vec<&'a str>],
     window_size: usize,
@@ -122,29 +102,22 @@ pub struct ContextBuilder<'a> {
     punctuation: HashSet<&'a str>,
     window_size: usize,
     ngrams: usize,
-    threshold: f32,
 }
 
 impl<'a> ContextBuilder<'a> {
     pub fn new(
         text: &'a str,
-        stopwords: &'a [&'a str],
-        punctuation: Option<&'a [&'a str]>,
+        stopwords: HashSet<&'a str>,
+        punctuation: HashSet<&'a str>,
         window_size: usize,
         ngrams: usize,
-        threshold: f32,
     ) -> Self {
         Self {
             text,
-            stopwords: stopwords.into_iter().copied().collect::<HashSet<&'a str>>(),
-            punctuation: punctuation
-                .unwrap_or(&PUNCTUATION)
-                .into_iter()
-                .copied()
-                .collect::<HashSet<&str>>(),
+            stopwords,
+            punctuation,
             window_size,
             ngrams,
-            threshold,
         }
     }
 
@@ -170,7 +143,7 @@ impl<'a> ContextBuilder<'a> {
     // -- PRE_PROCESSOR END --
 
     // -- CONTEXT BUILDER START --
-    pub fn build_candidates(&'a self, words: &'a [&'a str]) -> Vec<Vec<&'a str>> {
+    pub fn build_pre_candidates(&'a self, words: &'a [&'a str]) -> Vec<Vec<&'a str>> {
         let (mut candidates, last_candidate) = words.iter().fold(
             (Vec::<Vec<&'a str>>::new(), Vec::<&'a str>::new()),
             |(candidates, candidate), word| {
@@ -189,7 +162,7 @@ impl<'a> ContextBuilder<'a> {
             candidates.extend(process_ngrams(last_candidate));
         }
 
-        filter_candidates(candidates, self.threshold)
+        candidates
     }
 
     pub fn build_right_left_context(
