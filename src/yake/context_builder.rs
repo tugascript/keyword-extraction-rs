@@ -69,33 +69,6 @@ fn process_candidates<'a>(
     (candidates, candidate)
 }
 
-fn build_right_left_context<'a>(
-    sentences: &'a [Vec<&'a str>],
-    window_size: usize,
-) -> RightLeftContext<'a> {
-    sentences.iter().fold(HashMap::new(), |mut ctx, sentence| {
-        sentence.iter().enumerate().for_each(|(i, word)| {
-            let entry: &mut RightLeftContextItem = ctx.entry(word.to_lowercase()).or_default();
-            let left = sentence
-                .iter()
-                .take(i)
-                .rev()
-                .take(window_size)
-                .rev()
-                .copied()
-                .collect();
-            let right = sentence
-                .iter()
-                .skip(i + 1)
-                .take(window_size)
-                .copied()
-                .collect();
-            entry.push((left, right));
-        });
-        ctx
-    })
-}
-
 pub struct ContextBuilder<'a> {
     text: &'a str,
     stopwords: HashSet<&'a str>,
@@ -140,6 +113,19 @@ impl<'a> ContextBuilder<'a> {
             })
             .collect()
     }
+
+    pub fn build_max_tf(&self) -> f32 {
+        self.text
+            .unicode_words()
+            .fold(HashMap::new(), |mut acc, word| {
+                *acc.entry(word.to_lowercase()).or_insert(0.0) += 1.0;
+                acc
+            })
+            .values()
+            .copied()
+            .fold(0.0, f32::max)
+    }
+
     // -- PRE_PROCESSOR END --
 
     // -- CONTEXT BUILDER START --
@@ -165,11 +151,34 @@ impl<'a> ContextBuilder<'a> {
         candidates
     }
 
-    pub fn build_right_left_context(
-        &'a self,
-        sentences: &'a [Vec<&'a str>],
-    ) -> RightLeftContext<'a> {
-        build_right_left_context(sentences, self.window_size)
+    pub fn build_right_left_context(&'a self) -> RightLeftContext<'a> {
+        self.text
+            .unicode_words()
+            .fold(HashMap::new(), |mut ctx, sentence| {
+                let words = sentence.unicode_words().collect::<Vec<&str>>();
+                words.iter().enumerate().for_each(|(i, word)| {
+                    let entry: &mut RightLeftContextItem =
+                        ctx.entry(word.to_lowercase()).or_default();
+                    let left = words
+                        .iter()
+                        .take(i)
+                        .rev()
+                        .take(self.window_size)
+                        .rev()
+                        .copied()
+                        .collect();
+                    let right = words
+                        .iter()
+                        .skip(i + 1)
+                        .take(self.window_size)
+                        .copied()
+                        .collect();
+                    entry.push((left, right));
+                });
+                ctx
+            })
+            .into_iter()
+            .collect()
     }
     // -- CONTEXT BUILDER END --
 }

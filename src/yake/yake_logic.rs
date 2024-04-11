@@ -26,39 +26,14 @@ impl YakeLogic {
     pub fn build_yake(context_builder: ContextBuilder<'_>, threshold: f32) -> HashMap<String, f32> {
         let words = context_builder.build_words();
         let sentences = context_builder.build_sentences();
-        let right_left_context = context_builder.build_right_left_context(&sentences);
+        let right_left_context = context_builder.build_right_left_context();
         let pre_candidates = context_builder.build_pre_candidates(&words);
+        let max_tf = context_builder.build_max_tf();
 
         Self::score_candidates(
             Self::filter_candidates(&pre_candidates, threshold),
-            Self::calculate_tfk(Self::calculate_count_map(&pre_candidates)),
-            FeatureExtraction::new(&sentences, &words, right_left_context),
+            FeatureExtraction::new(&sentences, &words, right_left_context, max_tf),
         )
-    }
-
-    fn calculate_count_map<'a>(pre_candidates: &'a [Vec<&'a str>]) -> HashMap<String, f32> {
-        pre_candidates
-            .iter()
-            .fold(HashMap::new(), |mut acc, candidate| {
-                let key = candidate.join(" ").to_lowercase();
-                let count = acc.entry(key).or_insert(0.0);
-                *count += 1.0;
-                acc
-            })
-    }
-
-    fn calculate_tfk(count_map: HashMap<String, f32>) -> HashMap<String, f32> {
-        let count = count_map.len() as f32 + f32::EPSILON;
-        let avg = count_map.values().sum::<f32>() / count;
-        let std = count_map
-            .values()
-            .map(|value| (value - avg).powi(2))
-            .sum::<f32>()
-            .sqrt();
-        count_map
-            .into_iter()
-            .map(|(key, value)| (key, value / (avg + std + f32::EPSILON)))
-            .collect()
     }
 
     // Filter Pre Candidates into Candidates
@@ -92,22 +67,21 @@ impl YakeLogic {
      **/
     fn score_candidates(
         candidates: Vec<Vec<&str>>,
-        tfk: HashMap<String, f32>,
         feature_extraction: FeatureExtraction,
     ) -> HashMap<String, f32> {
         candidates
             .iter()
             .fold(HashMap::new(), |mut acc, candidate| {
-                let (product, sum) = candidate.iter().fold((1.0, 0.0), |acc, word| {
+                let (product, sum, tf) = candidate.iter().fold((1.0, 0.0, 0.0), |acc, word| {
                     let word = word.to_lowercase();
                     let value = feature_extraction
                         .get_feature_score(&word)
-                        .unwrap_or(f32::EPSILON);
-                    (acc.0 * value, acc.1 + value)
+                        .unwrap_or((f32::EPSILON, f32::EPSILON));
+                    (acc.0 * value.1, acc.1 + value.1, acc.2 + value.0)
                 });
-                let key = candidate.join(" ").to_lowercase();
-                let score = product / (tfk.get(&key).unwrap_or(&f32::EPSILON) * (1.0 + sum));
-                acc.insert(key, score);
+                let tf_kw = tf / candidate.len() as f32;
+                let score = product / (tf_kw * (1.0 + sum));
+                acc.insert(candidate.join(" ").to_lowercase(), score);
                 acc
             })
     }

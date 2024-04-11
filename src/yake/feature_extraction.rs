@@ -24,11 +24,12 @@ use super::context_builder::RightLeftContext;
 type TfCaps = f32;
 type TfUpper = f32;
 type TfAll = f32;
+type Score = f32;
 type TfCasing = (TfCaps, TfUpper, TfAll);
 type CasingMap = HashMap<String, TfCasing>;
 
 pub struct FeatureExtraction {
-    features: HashMap<String, f32>,
+    features: HashMap<String, (TfAll, Score)>,
 }
 
 impl<'a> FeatureExtraction {
@@ -40,12 +41,13 @@ impl<'a> FeatureExtraction {
         sentences: &'a [Vec<&'a str>],
         words: &'a [&'a str],
         right_left_context: RightLeftContext<'a>,
+        max_tf: f32,
     ) -> Self {
         let casing_map = generate_casing_map(words);
         let cas = calculate_casing(&casing_map);
         let tf = calculate_tf(&casing_map);
         let pos = calculate_positional(words);
-        let rel = calculate_relatedness(sentences, &right_left_context);
+        let rel = calculate_relatedness(&casing_map, &right_left_context, max_tf);
         let dif = calculate_different_sentences(sentences, &right_left_context);
 
         Self {
@@ -58,17 +60,16 @@ impl<'a> FeatureExtraction {
                     let wpos = *pos.get(word).unwrap_or(&0.0);
                     let wrel = *rel.get(word).unwrap_or(&f32::EPSILON);
                     let wdif = *dif.get(word).unwrap_or(&0.0);
+                    let tf = casing_map.get(word).unwrap_or(&(0.0, 0.0, f32::EPSILON)).2;
+                    let score = (wpos * wrel) / (wcas + (wfreq / wrel) + (wdif / wrel));
 
-                    (
-                        word.to_string(),
-                        (wpos * wrel) / (wcas + (wfreq / wrel) + (wdif / wrel)),
-                    )
+                    (word.to_string(), (tf, score))
                 })
                 .collect(),
         }
     }
 
-    pub fn get_feature_score(&self, word: &str) -> Option<f32> {
+    pub fn get_feature_score(&self, word: &str) -> Option<(f32, f32)> {
         self.features.get(word).copied()
     }
 }
@@ -119,7 +120,7 @@ fn calculate_casing(casing_map: &CasingMap) -> HashMap<&str, f32> {
     casing_map
         .iter()
         .map(|(word, (caps, upper, all))| {
-            let max = if caps > upper { caps } else { upper };
+            let max = caps.max(*upper);
             (word.as_str(), max / (1.0 + all.ln()))
         })
         .collect()
@@ -187,17 +188,17 @@ fn calculate_different_sentences<'a>(
 
 /**
  * Formula:
- * WRel = ((Wdl/Wil) + (Wdr/Wir)) / 2
+ * WRel = ( (0.5 + (PWl * (TF / max(TF)))) + (0.5 + (PWr * (TF / max(TF)))) )
 **/
+// TODO: Fix me
 fn calculate_relatedness<'a>(
-    sentences: &'a [Vec<&'a str>],
+    casing_map: &CasingMap,
     right_left_context: &'a RightLeftContext<'a>,
+    max_tf: f32,
 ) -> HashMap<&'a str, f32> {
-    let length = sentences.len() as f32;
     right_left_context
         .iter()
-        .map(|(word, contexts)| {
-            let context_length = contexts.len() as f32;
+        .filter_map(|(word, contexts)| {
             let (left_unique, left_total, right_unique, right_total) = contexts.iter().fold(
                 (HashSet::new(), 0.0, HashSet::new(), 0.0),
                 |(mut left_unique, mut left_total, mut right_unique, mut right_total),
@@ -213,14 +214,16 @@ fn calculate_relatedness<'a>(
                     (left_unique, left_total, right_unique, right_total)
                 },
             );
+            let pwl = left_unique.len() as f32 / (left_total + f32::EPSILON);
+            let pwr = right_unique.len() as f32 / (right_total + f32::EPSILON);
+            let tf = casing_map.get(word).map(|(_, _, all)| all);
 
-            let dif = (context_length / length) + f32::EPSILON;
-            let wdl = left_unique.len() as f32 / dif;
-            let wdr = right_unique.len() as f32 / dif;
-            let wil = left_total + f32::EPSILON;
-            let wir = right_total + f32::EPSILON;
+            if let Some(tf) = tf {
+                let tf = *tf / max_tf;
+                return Some((word.as_str(), (1.0 + (pwl + pwr) * tf)));
+            }
 
-            (word.as_str(), ((wdl / wil) + (wdr / wir)) / 2.0)
+            None
         })
         .collect()
 }
