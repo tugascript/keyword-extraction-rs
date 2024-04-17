@@ -23,7 +23,6 @@ use super::{context_builder::Context, yake_tokenizer::Sentence};
 
 #[derive(Debug, Default)]
 pub struct Features {
-    stopword: bool,
     tf: f32,
     tf_capitalized: f32,
     tf_all_upper: f32,
@@ -38,50 +37,6 @@ pub struct Features {
 }
 
 impl Features {
-    pub fn get_stopword(&self) -> bool {
-        self.stopword
-    }
-
-    pub fn get_tf(&self) -> f32 {
-        self.tf
-    }
-
-    pub fn get_tf_capitalized(&self) -> f32 {
-        self.tf_capitalized
-    }
-
-    pub fn get_tf_all_upper(&self) -> f32 {
-        self.tf_all_upper
-    }
-
-    pub fn get_casing(&self) -> f32 {
-        self.casing
-    }
-
-    pub fn get_position(&self) -> f32 {
-        self.position
-    }
-
-    pub fn get_frequency(&self) -> f32 {
-        self.frequency
-    }
-
-    pub fn get_wl(&self) -> f32 {
-        self.wl
-    }
-
-    pub fn get_wr(&self) -> f32 {
-        self.wr
-    }
-
-    pub fn get_different(&self) -> f32 {
-        self.different
-    }
-
-    pub fn get_relatedness(&self) -> f32 {
-        self.relatedness
-    }
-
     pub fn get_weight(&self) -> f32 {
         self.weight
     }
@@ -124,12 +79,12 @@ impl<'a> FeatureExtraction<'a> {
             HashMap::<&str, Features>::new(),
             |mut acc, (word, occurrences)| {
                 let word = word.as_str();
-                let mut features = Features::default();
-
-                features.stopword = stop_words.contains(word);
-                features.tf = occurrences.len() as f32;
-                features.tf_capitalized = 0.0;
-                features.tf_all_upper = 0.0;
+                let mut features = Features {
+                    tf: occurrences.len() as f32,
+                    tf_capitalized: 0.0,
+                    tf_all_upper: 0.0,
+                    ..Default::default()
+                };
 
                 let all_upper_check = |w: &str| {
                     let is_large = w.graphemes(true).count() > 1;
@@ -152,7 +107,13 @@ impl<'a> FeatureExtraction<'a> {
 
                 occurrences.iter().for_each(|occurrence| {
                     let w = occurrence.get_word();
-                    features.tf_all_upper += if all_upper_check(w) { 1.0 } else { 0.0 };
+                    features.tf_all_upper += if all_upper_check(w)
+                        && occurrence.get_shift() != occurrence.get_shift_offset()
+                    {
+                        1.0
+                    } else {
+                        0.0
+                    };
                     features.tf_all_upper += if capitalized_check(w) { 1.0 } else { 0.0 };
                 });
 
@@ -214,9 +175,5 @@ impl<'a> FeatureExtraction<'a> {
 
     pub fn get_word_features(&self, word: &str) -> Option<&Features> {
         self.0.get(word)
-    }
-
-    pub fn features(&self) -> impl Iterator<Item = (&&'a str, &Features)> {
-        self.0.iter()
     }
 }

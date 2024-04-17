@@ -41,7 +41,11 @@ impl YakeLogic {
         let candidates = Candidates::new(sentences, ngram, &stop_words);
         Self::filter_candidates(
             &candidates,
-            Self::score_candidates(&feature_extraction, &candidates),
+            Self::score_candidates(
+                &feature_extraction,
+                &candidates,
+                Self::build_de_duplicate_hashset(&candidates),
+            ),
             threshold,
         )
     }
@@ -68,6 +72,20 @@ impl YakeLogic {
             .collect()
     }
 
+    fn build_de_duplicate_hashset<'a>(candidates: &'a Candidates) -> HashSet<&'a str> {
+        candidates
+            .candidates()
+            .fold(HashSet::new(), |mut acc, (_, (s, _))| {
+                if s.len() > 1 {
+                    s.iter().for_each(|w| {
+                        acc.insert(*w);
+                    })
+                }
+
+                acc
+            })
+    }
+
     /**
      * Formula
      * S(kw) = Π(H) / TF(kw)(1 + Σ(H))
@@ -75,6 +93,7 @@ impl YakeLogic {
     fn score_candidates<'a>(
         feature_extraction: &'a FeatureExtraction,
         candidates: &'a Candidates,
+        dedup_hashset: HashSet<&'a str>,
     ) -> HashMap<&'a str, f32> {
         candidates
             .candidates()
@@ -87,8 +106,15 @@ impl YakeLogic {
                     (acc.0 * weight, acc.1 + weight)
                 });
                 let tf = v.1.len() as f32;
-                let prod = if v.0.len() > 1 { prod + 5.0 } else { prod };
-                acc.insert(k.as_str(), prod / (tf * (1.0 + sum)));
+                let key = k.as_str();
+                let prod = if dedup_hashset.contains(key) {
+                    prod + 5.0
+                } else {
+                    prod
+                };
+                let sum = if sum == -1.0 { 1.0 - f32::EPSILON } else { sum };
+
+                acc.insert(key, prod / (tf * (1.0 + sum)));
                 acc
             })
     }

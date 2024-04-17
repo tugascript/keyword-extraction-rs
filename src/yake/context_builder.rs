@@ -85,7 +85,7 @@ fn build_occurrences<'a>(
                 .enumerate()
                 .for_each(|(j, word)| {
                     if is_punctuation(word, punctuation) {
-                        return ;
+                        return;
                     }
 
                     let entry = acc.entry(word.to_lowercase()).or_default();
@@ -137,10 +137,6 @@ impl<'a> Context<'a> {
             occurrences: build_occurrences(sentences, punctuation),
             contexts: build_contexts(sentences, window_size),
         }
-    }
-
-    pub fn get_word_occurrences(&self, word: &str) -> Option<&[Occurrence<'a>]> {
-        self.occurrences.get(word).map(|v| v.as_slice())
     }
 
     pub fn get_word_context(&self, word: &str) -> Option<(&[&'a str], &[&'a str])> {

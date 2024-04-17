@@ -13,8 +13,6 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with Rust Keyword Extraction. If not, see <http://www.gnu.org/licenses/>.
 
-use std::collections::HashSet;
-
 use regex::Regex;
 use unicode_segmentation::{UnicodeSegmentation, UnicodeWords};
 
@@ -23,7 +21,6 @@ use crate::common::get_special_char_regex;
 pub struct Sentence<'a> {
     words: Vec<&'a str>,
     stemmed: Vec<String>,
-    unique: HashSet<&'a str>,
     length: usize,
 }
 
@@ -35,7 +32,6 @@ impl<'a> Sentence<'a> {
                 .iter()
                 .map(|w| process_word(w, special_char_regex))
                 .collect::<Vec<String>>(),
-            unique: words.iter().copied().collect::<HashSet<&'a str>>(),
             length: words.len(),
             words,
         }
@@ -47,10 +43,6 @@ impl<'a> Sentence<'a> {
 
     pub fn get_stemmed(&self) -> &[String] {
         &self.stemmed
-    }
-
-    pub fn get_unique(&self) -> &HashSet<&'a str> {
-        &self.unique
     }
 
     pub fn get_length(&self) -> usize {
