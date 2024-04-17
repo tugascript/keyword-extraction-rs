@@ -19,211 +19,204 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use crate::common::{get_capitalized_regex, get_upper_case_regex};
 
-use super::context_builder::RightLeftContext;
+use super::{context_builder::Context, yake_tokenizer::Sentence};
 
-type TfCaps = f32;
-type TfUpper = f32;
-type TfAll = f32;
-type Score = f32;
-type TfCasing = (TfCaps, TfUpper, TfAll);
-type CasingMap = HashMap<String, TfCasing>;
-
-pub struct FeatureExtraction {
-    features: HashMap<String, (TfAll, Score)>,
+#[derive(Debug, Default)]
+pub struct Features {
+    stopword: bool,
+    tf: f32,
+    tf_capitalized: f32,
+    tf_all_upper: f32,
+    casing: f32,
+    position: f32,
+    frequency: f32,
+    wl: f32,
+    wr: f32,
+    different: f32,
+    relatedness: f32,
+    weight: f32,
 }
 
-impl<'a> FeatureExtraction {
+impl Features {
+    pub fn get_stopword(&self) -> bool {
+        self.stopword
+    }
+
+    pub fn get_tf(&self) -> f32 {
+        self.tf
+    }
+
+    pub fn get_tf_capitalized(&self) -> f32 {
+        self.tf_capitalized
+    }
+
+    pub fn get_tf_all_upper(&self) -> f32 {
+        self.tf_all_upper
+    }
+
+    pub fn get_casing(&self) -> f32 {
+        self.casing
+    }
+
+    pub fn get_position(&self) -> f32 {
+        self.position
+    }
+
+    pub fn get_frequency(&self) -> f32 {
+        self.frequency
+    }
+
+    pub fn get_wl(&self) -> f32 {
+        self.wl
+    }
+
+    pub fn get_wr(&self) -> f32 {
+        self.wr
+    }
+
+    pub fn get_different(&self) -> f32 {
+        self.different
+    }
+
+    pub fn get_relatedness(&self) -> f32 {
+        self.relatedness
+    }
+
+    pub fn get_weight(&self) -> f32 {
+        self.weight
+    }
+}
+
+pub struct FeatureExtraction<'a>(HashMap<&'a str, Features>);
+
+impl<'a> FeatureExtraction<'a> {
     /**
      * Formula:
      *  H = (WPos * WRel) / (WCas + (WFreq/WRel) + (WDif/WRel))
      **/
     pub fn new(
-        sentences: &'a [Vec<&'a str>],
-        words: &'a [&'a str],
-        right_left_context: RightLeftContext<'a>,
-        max_tf: f32,
+        context: &'a Context<'a>,
+        sentences: &'a [Sentence<'a>],
+        stop_words: &'a HashSet<&'a str>,
     ) -> Self {
-        let casing_map = generate_casing_map(words);
-        let cas = calculate_casing(&casing_map);
-        let tf = calculate_tf(&casing_map);
-        let pos = calculate_positional(words);
-        let rel = calculate_relatedness(&casing_map, &right_left_context, max_tf);
-        let dif = calculate_different_sentences(sentences, &right_left_context);
+        let tf_values = context
+            .occurrences()
+            .filter_map(|(w, o)| {
+                if stop_words.contains(w.as_str()) {
+                    return None;
+                }
+                Some(o.len())
+            })
+            .collect::<Vec<usize>>();
+        let tf_total = tf_values.iter().sum::<usize>() as f32;
+        let tf_mean = tf_total / (tf_values.len() as f32 + f32::EPSILON);
+        let tf_std = tf_values
+            .iter()
+            .fold(0.0_f32, |a, v| a + (*v as f32 - tf_mean).powi(2))
+            .sqrt();
+        let tf_max = match tf_values.iter().max() {
+            Some(v) => *v as f32,
+            None => f32::EPSILON,
+        };
+        let sentence_len = sentences.len() as f32;
 
-        Self {
-            features: right_left_context
-                .keys()
-                .map(|word| {
-                    let word = word.as_str();
-                    let wcas = *cas.get(word).unwrap_or(&f32::EPSILON);
-                    let wfreq = *tf.get(word).unwrap_or(&0.0);
-                    let wpos = *pos.get(word).unwrap_or(&0.0);
-                    let wrel = *rel.get(word).unwrap_or(&f32::EPSILON);
-                    let wdif = *dif.get(word).unwrap_or(&0.0);
-                    let tf = casing_map.get(word).unwrap_or(&(0.0, 0.0, f32::EPSILON)).2;
-                    let score = (wpos * wrel) / (wcas + (wfreq / wrel) + (wdif / wrel));
+        Self(context.occurrences().fold(
+            HashMap::<&str, Features>::new(),
+            |mut acc, (word, occurrences)| {
+                let word = word.as_str();
+                let mut features = Features::default();
 
-                    (word.to_string(), (tf, score))
-                })
-                .collect(),
-        }
+                features.stopword = stop_words.contains(word);
+                features.tf = occurrences.len() as f32;
+                features.tf_capitalized = 0.0;
+                features.tf_all_upper = 0.0;
+
+                let all_upper_check = |w: &str| {
+                    let is_large = w.graphemes(true).count() > 1;
+                    let upper_regex = get_upper_case_regex();
+                    match upper_regex {
+                        Some(r) => is_large && r.is_match(w),
+                        None => is_large && w.to_uppercase().as_str() == w,
+                    }
+                };
+                let capitalized_check = |w: &str| {
+                    let capitalized_regex = get_capitalized_regex();
+                    match capitalized_regex {
+                        Some(r) => r.is_match(w),
+                        None => {
+                            w.chars().next().unwrap().is_uppercase()
+                                && w.chars().skip(1).all(char::is_lowercase)
+                        }
+                    }
+                };
+
+                occurrences.iter().for_each(|occurrence| {
+                    let w = occurrence.get_word();
+                    features.tf_all_upper += if all_upper_check(w) { 1.0 } else { 0.0 };
+                    features.tf_all_upper += if capitalized_check(w) { 1.0 } else { 0.0 };
+                });
+
+                features.casing =
+                    features.tf_all_upper.max(features.tf_capitalized) / (1.0 + features.tf.ln());
+                features.frequency = features.tf / (tf_mean + tf_std + f32::EPSILON);
+
+                let occ_len = occurrences.len();
+                let median = if occ_len == 0 {
+                    0.0
+                } else if occ_len == 1 {
+                    occurrences[0].get_sentence_index() as f32
+                } else if occ_len % 2 == 0 {
+                    occurrences[occ_len / 2].get_sentence_index() as f32
+                } else {
+                    let mid = occ_len / 2;
+                    (occurrences[mid].get_sentence_index()
+                        + occurrences[mid - 1].get_sentence_index()) as f32
+                        / 2.0
+                };
+
+                features.position = (3.0 + median).ln().ln();
+
+                let left_right_context = context.get_word_context(word).unwrap_or((&[], &[]));
+                let left_context_unique = left_right_context
+                    .0
+                    .iter()
+                    .copied()
+                    .collect::<HashSet<&str>>();
+                features.wl = left_context_unique.len() as f32
+                    / (left_right_context.0.len() as f32 + f32::EPSILON);
+
+                let right_context_unique = left_right_context
+                    .1
+                    .iter()
+                    .copied()
+                    .collect::<HashSet<&str>>();
+                features.wr = right_context_unique.len() as f32
+                    / (left_right_context.1.len() as f32 + f32::EPSILON);
+
+                features.relatedness = 1.0 + ((features.wl + features.wr) * (features.tf / tf_max));
+
+                let unique_sentences = occurrences
+                    .iter()
+                    .map(|occ| occ.get_sentence_index())
+                    .collect::<HashSet<usize>>();
+                features.different = unique_sentences.len() as f32 / (sentence_len + f32::EPSILON);
+
+                features.weight = (features.relatedness * features.position)
+                    / (features.casing
+                        + (features.frequency / features.relatedness)
+                        + (features.different / features.relatedness));
+
+                acc.insert(word, features);
+                acc
+            },
+        ))
     }
 
-    pub fn get_feature_score(&self, word: &str) -> Option<(f32, f32)> {
-        self.features.get(word).copied()
+    pub fn get_word_features(&self, word: &str) -> Option<&Features> {
+        self.0.get(word)
     }
-}
 
-fn generate_casing_map<'a>(words: &'a [&'a str]) -> CasingMap {
-    words.iter().fold(HashMap::new(), |mut cm, w| {
-        let value = cm.entry(w.to_lowercase()).or_insert((0.0, 0.0, 0.0));
-        value.2 += 1.0;
-
-        if w.graphemes(true).count() == 1 {
-            return cm;
-        }
-        match get_upper_case_regex() {
-            Some(regex) => {
-                if regex.is_match(w) {
-                    value.0 += 1.0;
-                }
-            }
-            None => {
-                if w.to_uppercase().as_str() == *w {
-                    value.0 += 1.0;
-                }
-            }
-        };
-        match get_capitalized_regex() {
-            Some(regex) => {
-                if regex.is_match(w) {
-                    value.1 += 1.0;
-                }
-            }
-            None => {
-                if w.chars().next().unwrap().is_uppercase()
-                    && w.chars().skip(1).all(char::is_lowercase)
-                {
-                    value.1 += 1.0;
-                }
-            }
-        };
-        cm
-    })
-}
-
-/**
- * Formula:
- * WCase = MAX(TfCaps, TfUpper) / (1 + ln(TfAll))
-**/
-fn calculate_casing(casing_map: &CasingMap) -> HashMap<&str, f32> {
-    casing_map
-        .iter()
-        .map(|(word, (caps, upper, all))| {
-            let max = caps.max(*upper);
-            (word.as_str(), max / (1.0 + all.ln()))
-        })
-        .collect()
-}
-
-/**
- * Formula:
- * WFreq = TfAll / (avgTf + stdTf)
-**/
-fn calculate_tf(casing_map: &CasingMap) -> HashMap<&str, f32> {
-    let count = casing_map.len() as f32 + f32::EPSILON;
-    let avg = casing_map.values().fold(0.0, |acc, v| acc + v.2) / count;
-    let std = casing_map
-        .values()
-        .fold(0.0, |acc, v| (acc + (v.2 - avg).powi(2)) / count)
-        .sqrt();
-    casing_map
-        .iter()
-        .map(|(word, (_, _, all))| (word.as_str(), all / (avg + std + f32::EPSILON)))
-        .collect()
-}
-
-/**
- * Formula:
- * WPos = ln(ln(3 + med(pos)))
-**/
-fn calculate_positional<'a>(words: &'a [&'a str]) -> HashMap<String, f32> {
-    words
-        .iter()
-        .enumerate()
-        .fold(HashMap::new(), |mut pm, (i, w)| {
-            let value: &mut Vec<usize> = pm.entry(w.to_lowercase()).or_default();
-            value.push(i);
-            pm
-        })
-        .into_iter()
-        .map(|(word, positions)| {
-            let length = positions.len();
-            let median = if length % 2 == 0 {
-                let mid = length / 2;
-                (positions[mid] + positions[mid - 1]) as f32 / 2.0
-            } else {
-                positions[length / 2] as f32
-            };
-
-            (word, (3.0 + median).ln().ln())
-        })
-        .collect()
-}
-
-/**
- * Formula:
- * WDif = Unique Sentences with word / Total Sentences
-**/
-fn calculate_different_sentences<'a>(
-    sentences: &'a [Vec<&'a str>],
-    right_left_context: &'a RightLeftContext<'a>,
-) -> HashMap<&'a str, f32> {
-    let length = sentences.len() as f32 + f32::EPSILON;
-    right_left_context
-        .iter()
-        .map(|(key, val)| (key.as_str(), val.len() as f32 / length))
-        .collect()
-}
-
-/**
- * Formula:
- * WRel = ( (0.5 + (PWl * (TF / max(TF)))) + (0.5 + (PWr * (TF / max(TF)))) )
-**/
-// TODO: Fix me
-fn calculate_relatedness<'a>(
-    casing_map: &CasingMap,
-    right_left_context: &'a RightLeftContext<'a>,
-    max_tf: f32,
-) -> HashMap<&'a str, f32> {
-    right_left_context
-        .iter()
-        .filter_map(|(word, contexts)| {
-            let (left_unique, left_total, right_unique, right_total) = contexts.iter().fold(
-                (HashSet::new(), 0.0, HashSet::new(), 0.0),
-                |(mut left_unique, mut left_total, mut right_unique, mut right_total),
-                 (left, right)| {
-                    left.iter().for_each(|w| {
-                        left_unique.insert(w.to_lowercase());
-                        left_total += 1.0;
-                    });
-                    right.iter().for_each(|w| {
-                        right_unique.insert(w.to_lowercase());
-                        right_total += 1.0;
-                    });
-                    (left_unique, left_total, right_unique, right_total)
-                },
-            );
-            let pwl = left_unique.len() as f32 / (left_total + f32::EPSILON);
-            let pwr = right_unique.len() as f32 / (right_total + f32::EPSILON);
-            let tf = casing_map.get(word).map(|(_, _, all)| all);
-
-            if let Some(tf) = tf {
-                let tf = *tf / max_tf;
-                return Some((word.as_str(), (1.0 + (pwl + pwr) * tf)));
-            }
-
-            None
-        })
-        .collect()
+    pub fn features(&self) -> impl Iterator<Item = (&&'a str, &Features)> {
+        self.0.iter()
+    }
 }

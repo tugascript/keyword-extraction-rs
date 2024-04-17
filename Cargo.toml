@@ -36,4 +36,4 @@ yake = []
 all = ["tf_idf", "co_occurrence", "rake", "text_rank", "yake"]
 
 #DEFAULT
-default = ["tf_idf", "rake", "text_rank"]
+default = ["tf_idf", "rake", "text_rank", "yake"]

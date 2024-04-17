@@ -15,34 +15,34 @@
 
 use std::collections::HashMap;
 
+mod candidate_selection;
 mod context_builder;
-use context_builder::ContextBuilder;
 mod feature_extraction;
 mod levenshtein;
 mod yake_logic;
-use yake_logic::YakeLogic;
 pub mod yake_params;
+mod yake_tokenizer;
 pub use yake_params::YakeParams;
 
 use crate::common::{get_ranked_scores, get_ranked_strings, PUNCTUATION};
+
+use self::yake_logic::YakeLogic;
 
 pub struct Yake(HashMap<String, f32>);
 
 impl Yake {
     pub fn new(params: YakeParams) -> Self {
-        let (text, stopwords, punctuation, threshold, ngrams, window_size) = params.get_params();
+        let (text, stop_words, puctuation, threshold, ngram, window_size) = params.get_params();
         Self(YakeLogic::build_yake(
-            ContextBuilder::new(
-                text,
-                stopwords.iter().map(|s| s.as_str()).collect(),
-                match punctuation {
-                    None => PUNCTUATION.into_iter().collect(),
-                    Some(p) => p.iter().map(|s| s.as_str()).collect(),
-                },
-                window_size,
-                ngrams,
-            ),
+            text,
+            stop_words.iter().map(|s| s.as_str()).collect(),
+            match puctuation {
+                Some(p) => p.iter().map(|s| s.as_str()).collect(),
+                None => PUNCTUATION.iter().copied().collect(),
+            },
             threshold,
+            ngram,
+            window_size,
         ))
     }
 

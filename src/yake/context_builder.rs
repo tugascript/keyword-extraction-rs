@@ -17,168 +17,139 @@ use std::collections::{HashMap, HashSet};
 
 use unicode_segmentation::UnicodeSegmentation;
 
-type RightLeftContextItem<'a> = Vec<(Vec<&'a str>, Vec<&'a str>)>;
-pub type RightLeftContext<'a> = HashMap<String, RightLeftContextItem<'a>>;
+use super::yake_tokenizer::Sentence;
 
-fn process_word<'a>(
+pub struct Occurrence<'a> {
+    shift_offset: usize,
+    shift: usize,
+    sentence_index: usize,
     word: &'a str,
-    stopwords: &'a HashSet<&'a str>,
-    punctuation: &'a HashSet<&'a str>,
-) -> Option<&'a str> {
-    if word.is_empty()
-        || (word.graphemes(true).count() == 1 && punctuation.contains(word))
-        || stopwords.contains(word)
-    {
-        return None;
-    }
-    Some(word)
 }
 
-fn process_ngrams(candidate: Vec<&str>) -> Vec<Vec<&str>> {
-    (0..candidate.len())
-        .rev()
-        .map(|i| candidate[0..=i].to_vec())
-        .collect()
-}
-
-fn process_candidates<'a>(
-    mut candidates: Vec<Vec<&'a str>>,
-    mut candidate: Vec<&'a str>,
-    word: &'a str,
-    punctuation: &'a HashSet<&'a str>,
-    stopwords: &'a HashSet<&'a str>,
-    ngrams: usize,
-) -> (Vec<Vec<&'a str>>, Vec<&'a str>) {
-    let word = word.trim();
-
-    if !(word.graphemes(true).count() == 1 && punctuation.contains(word)) {
-        if stopwords.contains(word) {
-            if !candidate.is_empty() && candidate.len() <= ngrams {
-                candidates.extend(process_ngrams(candidate));
-                candidate = Vec::new();
-            }
-        } else {
-            candidate.push(word);
-            if candidate.len() == ngrams {
-                candidates.extend(process_ngrams(candidate));
-                candidate = Vec::new();
-            }
-        }
-    }
-
-    (candidates, candidate)
-}
-
-pub struct ContextBuilder<'a> {
-    text: &'a str,
-    stopwords: HashSet<&'a str>,
-    punctuation: HashSet<&'a str>,
-    window_size: usize,
-    ngrams: usize,
-}
-
-impl<'a> ContextBuilder<'a> {
-    pub fn new(
-        text: &'a str,
-        stopwords: HashSet<&'a str>,
-        punctuation: HashSet<&'a str>,
-        window_size: usize,
-        ngrams: usize,
-    ) -> Self {
+impl<'a> Occurrence<'a> {
+    pub fn new(word: &'a str, shift: usize, sentence_index: usize, word_index: usize) -> Self {
         Self {
-            text,
-            stopwords,
-            punctuation,
-            window_size,
-            ngrams,
+            word,
+            sentence_index,
+            shift_offset: shift + word_index,
+            shift,
         }
     }
 
-    // -- PRE_PROCESSOR START --
-    pub fn build_words(&'a self) -> Vec<&'a str> {
-        self.text
-            .unicode_words()
-            .filter_map(|w| process_word(w, &self.stopwords, &self.punctuation))
-            .collect()
+    pub fn get_word(&self) -> &'a str {
+        self.word
     }
 
-    pub fn build_sentences(&'a self) -> Vec<Vec<&'a str>> {
-        self.text
-            .unicode_sentences()
-            .map(|s| {
-                s.trim()
-                    .unicode_words()
-                    .filter_map(|w| process_word(w, &self.stopwords, &self.punctuation))
-                    .collect()
-            })
-            .collect()
+    pub fn get_sentence_index(&self) -> usize {
+        self.sentence_index
     }
 
-    pub fn build_max_tf(&self) -> f32 {
-        self.text
-            .unicode_words()
-            .fold(HashMap::new(), |mut acc, word| {
-                *acc.entry(word.to_lowercase()).or_insert(0.0) += 1.0;
-                acc
-            })
-            .values()
-            .copied()
-            .fold(0.0, f32::max)
+    pub fn get_shift_offset(&self) -> usize {
+        self.shift_offset
     }
 
-    // -- PRE_PROCESSOR END --
-
-    // -- CONTEXT BUILDER START --
-    pub fn build_pre_candidates(&'a self, words: &'a [&'a str]) -> Vec<Vec<&'a str>> {
-        let (mut candidates, last_candidate) = words.iter().fold(
-            (Vec::<Vec<&'a str>>::new(), Vec::<&'a str>::new()),
-            |(candidates, candidate), word| {
-                process_candidates(
-                    candidates,
-                    candidate,
-                    word,
-                    &self.punctuation,
-                    &self.stopwords,
-                    self.ngrams,
-                )
-            },
-        );
-
-        if !last_candidate.is_empty() && last_candidate.len() <= self.ngrams {
-            candidates.extend(process_ngrams(last_candidate));
-        }
-
-        candidates
+    pub fn get_shift(&self) -> usize {
+        self.shift
     }
+}
 
-    pub fn build_right_left_context(&'a self) -> RightLeftContext<'a> {
-        self.text
-            .unicode_words()
-            .fold(HashMap::new(), |mut ctx, sentence| {
-                let words = sentence.unicode_words().collect::<Vec<&str>>();
-                words.iter().enumerate().for_each(|(i, word)| {
-                    let entry: &mut RightLeftContextItem =
-                        ctx.entry(word.to_lowercase()).or_default();
-                    let left = words
-                        .iter()
-                        .take(i)
-                        .rev()
-                        .take(self.window_size)
-                        .rev()
-                        .copied()
-                        .collect();
-                    let right = words
-                        .iter()
-                        .skip(i + 1)
-                        .take(self.window_size)
-                        .copied()
-                        .collect();
-                    entry.push((left, right));
+pub type Occurrences<'a> = HashMap<String, Vec<Occurrence<'a>>>;
+pub type LeftRightContext<'a> = HashMap<String, (Vec<&'a str>, Vec<&'a str>)>;
+
+pub struct Context<'a> {
+    occurrences: Occurrences<'a>,
+    contexts: LeftRightContext<'a>,
+}
+
+fn is_punctuation(word: &str, punctuation: &HashSet<&str>) -> bool {
+    word.is_empty() || ((word.graphemes(true).count() == 1) && punctuation.contains(word))
+}
+
+fn build_occurrences<'a>(
+    sentences: &'a [Sentence<'a>],
+    punctuation: &'a HashSet<&'a str>,
+) -> Occurrences<'a> {
+    sentences
+        .iter()
+        .enumerate()
+        .fold(Occurrences::new(), |mut acc, (i, sentence)| {
+            let shift = sentences
+                .iter()
+                .take(i)
+                .map(|s| s.get_length())
+                .sum::<usize>();
+
+            sentence
+                .get_words()
+                .iter()
+                .enumerate()
+                .for_each(|(j, word)| {
+                    if is_punctuation(word, punctuation) {
+                        return ();
+                    }
+
+                    let entry = acc.entry(word.to_lowercase()).or_insert(Vec::new());
+                    entry.push(Occurrence::new(word, shift, i, j));
                 });
-                ctx
-            })
-            .into_iter()
-            .collect()
+            acc
+        })
+}
+
+fn build_contexts<'a>(sentences: &'a [Sentence<'a>], window_size: usize) -> LeftRightContext<'a> {
+    sentences
+        .iter()
+        .fold(LeftRightContext::new(), |mut acc, sentence| {
+            sentence
+                .get_words()
+                .iter()
+                .fold(Vec::<&str>::new(), |mut buffer, w1| {
+                    let w1_lower = w1.to_lowercase();
+
+                    buffer.iter().for_each(|w2| {
+                        let entry_1 = acc
+                            .entry(w1_lower.to_string())
+                            .or_insert((Vec::new(), Vec::new()));
+                        entry_1.0.push(*w2);
+                        let entry_2 = acc
+                            .entry(w2.to_lowercase())
+                            .or_insert((Vec::new(), Vec::new()));
+                        entry_2.1.push(*w1);
+                    });
+
+                    buffer.push(*w1);
+                    if buffer.len() > window_size {
+                        buffer.remove(0);
+                    }
+
+                    buffer
+                });
+            acc
+        })
+}
+
+impl<'a> Context<'a> {
+    pub fn new(
+        sentences: &'a [Sentence<'a>],
+        punctuation: &'a HashSet<&'a str>,
+        window_size: usize,
+    ) -> Context<'a> {
+        Self {
+            occurrences: build_occurrences(sentences, punctuation),
+            contexts: build_contexts(sentences, window_size),
+        }
     }
-    // -- CONTEXT BUILDER END --
+
+    pub fn get_word_occurrences(&self, word: &str) -> Option<&[Occurrence<'a>]> {
+        self.occurrences.get(word).map(|v| v.as_slice())
+    }
+
+    pub fn get_word_context(&self, word: &str) -> Option<(&[&'a str], &[&'a str])> {
+        self.contexts
+            .get(word)
+            .map(|(v1, v2)| (v1.as_slice(), v2.as_slice()))
+    }
+
+    pub fn occurrences(&self) -> impl Iterator<Item = (&String, &Vec<Occurrence<'a>>)> {
+        self.occurrences.iter()
+    }
 }

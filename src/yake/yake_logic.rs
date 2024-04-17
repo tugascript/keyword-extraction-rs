@@ -13,75 +13,82 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with Rust Keyword Extraction. If not, see <http://www.gnu.org/licenses/>.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use super::{
-    context_builder::ContextBuilder, feature_extraction::FeatureExtraction,
+    candidate_selection::Candidates,
+    context_builder::Context,
+    feature_extraction::{FeatureExtraction, Features},
     levenshtein::Levenshtein,
+    yake_tokenizer::YakeTokenizer,
 };
 
 pub struct YakeLogic;
 
 impl YakeLogic {
-    pub fn build_yake(context_builder: ContextBuilder<'_>, threshold: f32) -> HashMap<String, f32> {
-        let words = context_builder.build_words();
-        let sentences = context_builder.build_sentences();
-        let right_left_context = context_builder.build_right_left_context();
-        let pre_candidates = context_builder.build_pre_candidates(&words);
-        let max_tf = context_builder.build_max_tf();
-
-        Self::score_candidates(
-            Self::filter_candidates(&pre_candidates, threshold),
-            FeatureExtraction::new(&sentences, &words, right_left_context, max_tf),
+    pub fn build_yake(
+        text: &str,
+        stop_words: HashSet<&str>,
+        punctuation: HashSet<&str>,
+        threshold: f32,
+        ngram: usize,
+        window_size: usize,
+    ) -> HashMap<String, f32> {
+        let tokenizer = YakeTokenizer::new(text);
+        let sentences = tokenizer.get_sentences();
+        let context = Context::new(sentences, &punctuation, window_size);
+        let feature_extraction = FeatureExtraction::new(&context, sentences, &stop_words);
+        let candidates = Candidates::new(sentences, ngram, &stop_words);
+        Self::filter_candidates(
+            &candidates,
+            Self::score_candidates(&feature_extraction, &candidates),
+            threshold,
         )
     }
 
     // Filter Pre Candidates into Candidates
     // Note: this reverses the order, but order is not important for the final calculation
-    fn filter_candidates<'a>(
-        pre_candidates: &'a [Vec<&'a str>],
+    fn filter_candidates(
+        candidates: &Candidates,
+        score: HashMap<&str, f32>,
         threshold: f32,
-    ) -> Vec<Vec<&'a str>> {
-        pre_candidates
-            .iter()
+    ) -> HashMap<String, f32> {
+        candidates
+            .candidates()
             .enumerate()
-            .rev()
-            .filter_map(|(i, candidate)| {
-                let current = candidate.join(" ").to_lowercase();
-
-                for pre_candidate in pre_candidates.iter().take(i) {
-                    let other = pre_candidate.join(" ").to_lowercase();
-                    let lev = Levenshtein::new(&current, &other);
+            .filter_map(|(i, (k1, _))| {
+                for (k2, _) in candidates.candidates().skip(i + 1) {
+                    let lev = Levenshtein::new(k1, k2);
                     if lev.ratio() >= threshold {
                         return None;
                     }
                 }
-                Some(candidate.to_vec())
+                Some((k1.to_string(), *score.get(k1.as_str()).unwrap_or(&0.0)))
             })
-            .collect::<Vec<Vec<&'a str>>>()
+            .collect()
     }
 
     /**
      * Formula
      * S(kw) = Π(H) / TF(kw)(1 + Σ(H))
      **/
-    fn score_candidates(
-        candidates: Vec<Vec<&str>>,
-        feature_extraction: FeatureExtraction,
-    ) -> HashMap<String, f32> {
+    fn score_candidates<'a>(
+        feature_extraction: &'a FeatureExtraction,
+        candidates: &'a Candidates,
+    ) -> HashMap<&'a str, f32> {
         candidates
-            .iter()
-            .fold(HashMap::new(), |mut acc, candidate| {
-                let (product, sum, tf) = candidate.iter().fold((1.0, 0.0, 0.0), |acc, word| {
-                    let word = word.to_lowercase();
-                    let value = feature_extraction
-                        .get_feature_score(&word)
-                        .unwrap_or((f32::EPSILON, f32::EPSILON));
-                    (acc.0 * value.1, acc.1 + value.1, acc.2 + value.0)
+            .candidates()
+            .fold(HashMap::new(), |mut acc, (k, v)| {
+                let (prod, sum) = v.0.iter().fold((1.0, 0.0), |acc, w| {
+                    let weight = feature_extraction
+                        .get_word_features(*w)
+                        .unwrap_or(&Features::default())
+                        .get_weight();
+                    (acc.0 * weight, acc.1 + weight)
                 });
-                let tf_kw = tf / candidate.len() as f32;
-                let score = product / (tf_kw * (1.0 + sum));
-                acc.insert(candidate.join(" ").to_lowercase(), score);
+                let tf = v.1.len() as f32;
+                let prod = if v.0.len() > 1 { prod + 5.0 } else { prod };
+                acc.insert(k.as_str(), prod / (tf * (1.0 + sum)));
                 acc
             })
     }
