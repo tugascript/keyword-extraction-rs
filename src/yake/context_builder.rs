@@ -85,10 +85,10 @@ fn build_occurrences<'a>(
                 .enumerate()
                 .for_each(|(j, word)| {
                     if is_punctuation(word, punctuation) {
-                        return ();
+                        return ;
                     }
 
-                    let entry = acc.entry(word.to_lowercase()).or_insert(Vec::new());
+                    let entry = acc.entry(word.to_lowercase()).or_default();
                     entry.push(Occurrence::new(word, shift, i, j));
                 });
             acc

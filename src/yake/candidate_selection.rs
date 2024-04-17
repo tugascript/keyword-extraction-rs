@@ -19,10 +19,7 @@ fn build_pre_candidates<'a>(sentences: &'a [Sentence], ngram: usize) -> PreCandi
                         .iter()
                         .map(|s| s.as_str())
                         .collect::<Vec<&'a str>>();
-                    let words = sentence.get_words()[j..k]
-                        .iter()
-                        .copied()
-                        .collect::<Vec<&'a str>>();
+                    let words = sentence.get_words()[j..k].to_vec();
                     let key = stems.join(" ");
                     let entry = acc.entry(key).or_insert((Vec::new(), Vec::new()));
                     if entry.0.is_empty() {

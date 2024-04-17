@@ -81,7 +81,7 @@ impl YakeLogic {
             .fold(HashMap::new(), |mut acc, (k, v)| {
                 let (prod, sum) = v.0.iter().fold((1.0, 0.0), |acc, w| {
                     let weight = feature_extraction
-                        .get_word_features(*w)
+                        .get_word_features(w)
                         .unwrap_or(&Features::default())
                         .get_weight();
                     (acc.0 * weight, acc.1 + weight)
