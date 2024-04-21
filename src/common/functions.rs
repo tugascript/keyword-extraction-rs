@@ -107,7 +107,7 @@ pub fn get_ranked_scores(map: &HashMap<String, f32, RandomState>, n: usize) -> V
 }
 
 pub fn get_special_char_regex() -> Option<Regex> {
-    Regex::new(r"('s|,|\.)").ok()
+    Regex::new(r"('s|,|\.|\s)").ok()
 }
 
 pub fn is_punctuation(word: &str, punctuation: &HashSet<String>) -> bool {
