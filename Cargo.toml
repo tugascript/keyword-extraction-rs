@@ -32,7 +32,8 @@ tf_idf = []
 co_occurrence = []
 rake = []
 text_rank = []
-all = ["tf_idf", "co_occurrence", "rake", "text_rank"]
+yake = []
+all = ["tf_idf", "co_occurrence", "rake", "text_rank", "yake"]
 
 #DEFAULT
 default = ["tf_idf", "rake", "text_rank"]
