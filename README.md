@@ -21,7 +21,7 @@ The full list of the algorithms in this library:
   - [x] TF-IDF
   - [x] RAKE
   - [x] TextRank
-  - [ ] YAKE
+  - [x] YAKE
 
 ## Usage
 
