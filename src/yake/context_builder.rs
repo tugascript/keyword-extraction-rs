@@ -104,6 +104,7 @@ fn build_contexts<'a>(sentences: &'a [Sentence<'a>], window_size: usize) -> Left
                 .iter()
                 .fold(Vec::<&str>::new(), |mut buffer, w1| {
                     let w1_lower = w1.to_lowercase();
+                    let w1_str = w1.as_ref();
 
                     buffer.iter().for_each(|w2| {
                         let entry_1 = acc
@@ -113,10 +114,11 @@ fn build_contexts<'a>(sentences: &'a [Sentence<'a>], window_size: usize) -> Left
                         let entry_2 = acc
                             .entry(w2.to_lowercase())
                             .or_insert((Vec::new(), Vec::new()));
-                        entry_2.1.push(*w1);
+                        entry_2.1.push(w1_str);
                     });
 
-                    buffer.push(*w1);
+                    buffer.push(w1_str);
+
                     if buffer.len() > window_size {
                         buffer.remove(0);
                     }

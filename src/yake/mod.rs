@@ -13,7 +13,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with Rust Keyword Extraction. If not, see <http://www.gnu.org/licenses/>.
 
-use std::collections::HashMap;
+use std::{cmp::Ordering, collections::HashMap, hash::RandomState};
 
 mod candidate_selection;
 mod context_builder;
@@ -24,9 +24,23 @@ pub mod yake_params;
 mod yake_tokenizer;
 pub use yake_params::YakeParams;
 
-use crate::common::{get_ranked_scores, get_ranked_strings, PUNCTUATION};
+use crate::common::PUNCTUATION;
 
 use self::yake_logic::YakeLogic;
+
+fn basic_sort<'a>(map: &'a HashMap<String, f32, RandomState>) -> Vec<(&'a String, &'a f32)> {
+    let mut map_values = map.iter().collect::<Vec<(&'a String, &'a f32)>>();
+    map_values.sort_by(|a, b| {
+        let order = a.1.partial_cmp(b.1).unwrap_or(Ordering::Equal);
+
+        if order == Ordering::Equal {
+            return b.0.cmp(a.0);
+        }
+
+        order
+    });
+    map_values
+}
 
 pub struct Yake(HashMap<String, f32>);
 
@@ -51,11 +65,19 @@ impl Yake {
     }
 
     pub fn get_ranked_keywords(&self, n: usize) -> Vec<String> {
-        get_ranked_strings(&self.0, n)
+        basic_sort(&self.0)
+            .iter()
+            .take(n)
+            .map(|(k, _)| k.to_string())
+            .collect()
     }
 
     pub fn get_ranked_keyword_scores(&self, n: usize) -> Vec<(String, f32)> {
-        get_ranked_scores(&self.0, n)
+        basic_sort(&self.0)
+            .iter()
+            .take(n)
+            .map(|(k, v)| (k.to_string(), **v))
+            .collect()
     }
 
     pub fn get_keyword_scores_map(&self) -> &HashMap<String, f32> {

@@ -13,31 +13,54 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with Rust Keyword Extraction. If not, see <http://www.gnu.org/licenses/>.
 
+use std::borrow::Cow;
+
 use regex::Regex;
-use unicode_segmentation::{UnicodeSegmentation, UnicodeWords};
+use unicode_segmentation::UnicodeSegmentation;
 
 use crate::common::get_special_char_regex;
 
 pub struct Sentence<'a> {
-    words: Vec<&'a str>,
+    words: Vec<Cow<'a, str>>,
     stemmed: Vec<String>,
     length: usize,
 }
 
 impl<'a> Sentence<'a> {
-    pub fn new(words: UnicodeWords<'a>, special_char_regex: &Option<Regex>) -> Self {
-        let words = words.collect::<Vec<&str>>();
+    pub fn new(s: &'a str, special_char_regex: &Option<Regex>) -> Self {
+        let words = s
+            .split_word_bounds()
+            .filter_map(|w| {
+                let trimmed = w.trim();
+
+                if trimmed.is_empty() || trimmed == " " {
+                    return None;
+                }
+
+                if let Some(regex) = special_char_regex {
+                    let value = regex.replace_all(trimmed, "");
+
+                    if value.is_empty() || value == " " {
+                        return None;
+                    }
+
+                    Some(value)
+                } else {
+                    Some(trimmed.into())
+                }
+            })
+            .collect::<Vec<Cow<'a, str>>>();
         Self {
             stemmed: words
                 .iter()
-                .map(|w| process_word(w, special_char_regex))
+                .map(|w| w.to_lowercase())
                 .collect::<Vec<String>>(),
             length: words.len(),
             words,
         }
     }
 
-    pub fn get_words(&self) -> &[&'a str] {
+    pub fn get_words(&self) -> &[Cow<'a, str>] {
         &self.words
     }
 
@@ -50,22 +73,15 @@ impl<'a> Sentence<'a> {
     }
 }
 
-fn process_word(w: &str, special_char_regex: &Option<Regex>) -> String {
-    if let Some(regex) = special_char_regex {
-        regex.replace_all(w.trim(), "").to_lowercase()
-    } else {
-        w.trim().to_lowercase()
-    }
-}
-
 pub struct YakeTokenizer<'a>(Vec<Sentence<'a>>);
 
 impl<'a> YakeTokenizer<'a> {
-    pub fn new(text: &'a str) -> Self {
+    pub fn new(pre_processed_text: &'a str) -> Self {
         let special_char_regex = get_special_char_regex();
         Self(
-            text.unicode_sentences()
-                .map(|s| Sentence::new(s.trim().unicode_words(), &special_char_regex))
+            pre_processed_text
+                .unicode_sentences()
+                .map(|s| Sentence::new(s.trim(), &special_char_regex))
                 .collect::<Vec<Sentence<'a>>>(),
         )
     }

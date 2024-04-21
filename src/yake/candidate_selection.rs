@@ -20,27 +20,54 @@ use std::{
 
 use super::yake_tokenizer::Sentence;
 
-type PreCandidate<'a> = HashMap<String, (Vec<&'a str>, Vec<Vec<&'a str>>)>;
+pub struct PreCandidate<'a> {
+    lexical_form: Vec<&'a str>,
+    surface_forms: Vec<Vec<&'a str>>,
+}
 
-fn build_pre_candidates<'a>(sentences: &'a [Sentence], ngram: usize) -> PreCandidate<'a> {
+impl<'a> PreCandidate<'a> {
+    pub fn new(stems: Vec<&'a str>) -> Self {
+        Self {
+            lexical_form: stems,
+            surface_forms: Vec::new(),
+        }
+    }
+
+    fn add(&mut self, words: Vec<&'a str>) {
+        self.surface_forms.push(words);
+    }
+
+    pub fn get_lexical_form(&self) -> &[&'a str] {
+        &self.lexical_form
+    }
+
+    pub fn get_surface_forms(&self) -> &[Vec<&'a str>] {
+        &self.surface_forms
+    }
+}
+
+type PreCandidates<'a> = HashMap<String, PreCandidate<'a>>;
+
+fn build_pre_candidates<'a>(sentences: &'a [Sentence], ngram: usize) -> PreCandidates<'a> {
     sentences
         .iter()
-        .fold(PreCandidate::new(), |mut acc, sentence| {
+        .fold(PreCandidates::new(), |mut acc, sentence| {
             let sentence_len = sentence.get_length();
+            let skip = min(ngram, sentence_len);
 
-            (0..sentence_len).for_each(|j| {
-                (j + 1..=min(j + ngram, sentence_len)).for_each(|k| {
-                    let stems = sentence.get_stemmed()[j..k]
+            (0..sentence_len).for_each(|i| {
+                (i + 1..=min(i + skip, sentence_len)).for_each(|j: usize| {
+                    let stems = sentence.get_stemmed()[i..j]
                         .iter()
                         .map(|s| s.as_str())
                         .collect::<Vec<&'a str>>();
-                    let words = sentence.get_words()[j..k].to_vec();
+                    let words = sentence.get_words()[i..j]
+                        .iter()
+                        .map(|s| s.as_ref())
+                        .collect::<Vec<&'a str>>();
                     let key = stems.join(" ");
-                    let entry = acc.entry(key).or_insert((Vec::new(), Vec::new()));
-                    if entry.0.is_empty() {
-                        entry.0 = stems;
-                    }
-                    entry.1.push(words);
+                    let entry = acc.entry(key).or_insert(PreCandidate::new(stems));
+                    entry.add(words);
                 });
             });
             acc
@@ -48,26 +75,52 @@ fn build_pre_candidates<'a>(sentences: &'a [Sentence], ngram: usize) -> PreCandi
 }
 
 fn filter_pre_candidates<'a>(
-    mut pre_candidates: PreCandidate<'a>,
+    pre_candidates: PreCandidates<'a>,
     stop_words: &'a HashSet<&'a str>,
-) -> PreCandidate<'a> {
-    pre_candidates.retain(|_, (s, _)| s.iter().all(|w| !stop_words.contains(w)));
+    punctuation: &'a HashSet<&'a str>,
+) -> PreCandidates<'a> {
     pre_candidates
+        .into_iter()
+        .filter(|(_, pc)| {
+            if pc.get_surface_forms().len() == 0 {
+                return false;
+            }
+            if pc.get_surface_forms()[0].len() == 0 {
+                return false;
+            }
+            let unique_words = pc
+                .get_lexical_form()
+                .iter()
+                .copied()
+                .collect::<HashSet<&str>>();
+            if unique_words.iter().any(|w| {
+                stop_words.contains(w) || punctuation.contains(w) || w.parse::<f32>().is_ok()
+            }) {
+                return false;
+            }
+
+            true
+        })
+        .collect()
 }
 
-pub struct Candidates<'a>(PreCandidate<'a>);
+pub struct Candidates<'a>(PreCandidates<'a>);
 
 impl<'a> Candidates<'a> {
-    pub fn new(sentences: &'a [Sentence], ngram: usize, stop_words: &'a HashSet<&'a str>) -> Self {
+    pub fn new(
+        sentences: &'a [Sentence],
+        ngram: usize,
+        stop_words: &'a HashSet<&'a str>,
+        punctuation: &'a HashSet<&'a str>,
+    ) -> Self {
         Self(filter_pre_candidates(
             build_pre_candidates(sentences, ngram),
             stop_words,
+            punctuation,
         ))
     }
 
-    pub fn candidates(
-        &self,
-    ) -> impl Iterator<Item = (&String, &(Vec<&'a str>, Vec<Vec<&'a str>>))> {
+    pub fn candidates(&self) -> impl Iterator<Item = (&String, &PreCandidate)> {
         self.0.iter()
     }
 }

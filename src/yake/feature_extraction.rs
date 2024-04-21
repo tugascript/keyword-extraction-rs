@@ -45,10 +45,6 @@ impl Features {
 pub struct FeatureExtraction<'a>(HashMap<&'a str, Features>);
 
 impl<'a> FeatureExtraction<'a> {
-    /**
-     * Formula:
-     *  H = (WPos * WRel) / (WCas + (WFreq/WRel) + (WDif/WRel))
-     **/
     pub fn new(
         context: &'a Context<'a>,
         sentences: &'a [Sentence<'a>],
@@ -69,10 +65,11 @@ impl<'a> FeatureExtraction<'a> {
             .iter()
             .fold(0.0_f32, |a, v| a + (*v as f32 - tf_mean).powi(2))
             .sqrt();
-        let tf_max = match tf_values.iter().max() {
-            Some(v) => *v as f32,
-            None => f32::EPSILON,
-        };
+        let tf_max = tf_values
+            .iter()
+            .max()
+            .map(|x| *x as f32)
+            .unwrap_or(f32::EPSILON);
         let sentence_len = sentences.len() as f32;
 
         Self(context.occurrences().fold(
@@ -81,8 +78,6 @@ impl<'a> FeatureExtraction<'a> {
                 let word = word.as_str();
                 let mut features = Features {
                     tf: occurrences.len() as f32,
-                    tf_capitalized: 0.0,
-                    tf_all_upper: 0.0,
                     ..Default::default()
                 };
 
@@ -107,18 +102,18 @@ impl<'a> FeatureExtraction<'a> {
 
                 occurrences.iter().for_each(|occurrence| {
                     let w = occurrence.get_word();
-                    features.tf_all_upper += if all_upper_check(w)
+                    features.tf_all_upper += if all_upper_check(w) { 1.0 } else { 0.0 };
+                    features.tf_capitalized += if capitalized_check(w)
                         && occurrence.get_shift() != occurrence.get_shift_offset()
                     {
                         1.0
                     } else {
                         0.0
                     };
-                    features.tf_all_upper += if capitalized_check(w) { 1.0 } else { 0.0 };
                 });
 
-                features.casing =
-                    features.tf_all_upper.max(features.tf_capitalized) / (1.0 + features.tf.ln());
+                features.casing = features.tf_all_upper.max(features.tf_capitalized)
+                    / (1.0 + features.tf.ln_1p());
                 features.frequency = features.tf / (tf_mean + tf_std + f32::EPSILON);
 
                 let occ_len = occurrences.len();
@@ -143,16 +138,21 @@ impl<'a> FeatureExtraction<'a> {
                     .iter()
                     .copied()
                     .collect::<HashSet<&str>>();
-                features.wl = left_context_unique.len() as f32
-                    / (left_right_context.0.len() as f32 + f32::EPSILON);
+
+                if !left_context_unique.is_empty() {
+                    features.wl = left_context_unique.len() as f32
+                        / (left_right_context.0.len() as f32 + f32::EPSILON);
+                }
 
                 let right_context_unique = left_right_context
                     .1
                     .iter()
                     .copied()
                     .collect::<HashSet<&str>>();
-                features.wr = right_context_unique.len() as f32
-                    / (left_right_context.1.len() as f32 + f32::EPSILON);
+                if !right_context_unique.is_empty() {
+                    features.wr = right_context_unique.len() as f32
+                        / (left_right_context.1.len() as f32 + f32::EPSILON);
+                }
 
                 features.relatedness = 1.0 + ((features.wl + features.wr) * (features.tf / tf_max));
 

@@ -13,7 +13,12 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with Rust Keyword Extraction. If not, see <http://www.gnu.org/licenses/>.
 
-use std::collections::{HashMap, HashSet};
+use std::{
+    borrow::Cow,
+    collections::{HashMap, HashSet},
+};
+
+use regex::Regex;
 
 use super::{
     candidate_selection::Candidates,
@@ -25,6 +30,21 @@ use super::{
 
 pub struct YakeLogic;
 
+fn get_space_regex() -> Option<Regex> {
+    Regex::new(r"[\n\t\r]").ok()
+}
+
+fn process_text<'a>(text: &'a str) -> Cow<'a, str> {
+    let space_regex = get_space_regex();
+    let trimmed_text = text.trim();
+
+    if let Some(regex) = space_regex {
+        regex.replace_all(trimmed_text, " ")
+    } else {
+        trimmed_text.into()
+    }
+}
+
 impl YakeLogic {
     pub fn build_yake(
         text: &str,
@@ -34,11 +54,12 @@ impl YakeLogic {
         ngram: usize,
         window_size: usize,
     ) -> HashMap<String, f32> {
-        let tokenizer = YakeTokenizer::new(text);
+        let processed_text = process_text(text);
+        let tokenizer = YakeTokenizer::new(processed_text.as_ref());
         let sentences = tokenizer.get_sentences();
         let context = Context::new(sentences, &punctuation, window_size);
         let feature_extraction = FeatureExtraction::new(&context, sentences, &stop_words);
-        let candidates = Candidates::new(sentences, ngram, &stop_words);
+        let candidates = Candidates::new(sentences, ngram, &stop_words, &punctuation);
         Self::filter_candidates(
             &candidates,
             Self::score_candidates(
@@ -75,11 +96,11 @@ impl YakeLogic {
     fn build_de_duplicate_hashset<'a>(candidates: &'a Candidates) -> HashSet<&'a str> {
         candidates
             .candidates()
-            .fold(HashSet::new(), |mut acc, (_, (s, _))| {
-                if s.len() > 1 {
-                    s.iter().for_each(|w| {
+            .fold(HashSet::new(), |mut acc, (_, pc)| {
+                if pc.get_lexical_form().len() > 1 {
+                    pc.get_lexical_form().iter().for_each(|w| {
                         acc.insert(*w);
-                    })
+                    });
                 }
 
                 acc
@@ -97,21 +118,27 @@ impl YakeLogic {
     ) -> HashMap<&'a str, f32> {
         candidates
             .candidates()
-            .fold(HashMap::new(), |mut acc, (k, v)| {
-                let (prod, sum) = v.0.iter().fold((1.0, 0.0), |acc, w| {
-                    let weight = feature_extraction
-                        .get_word_features(w)
-                        .unwrap_or(&Features::default())
-                        .get_weight();
-                    (acc.0 * weight, acc.1 + weight)
-                });
-                let tf = v.1.len() as f32;
+            .fold(HashMap::new(), |mut acc, (k, pc)| {
                 let key = k.as_str();
-                let prod = if dedup_hashset.contains(key) {
-                    prod + 5.0
-                } else {
-                    prod
-                };
+                let (prod, sum) = pc.get_lexical_form().iter().fold(
+                    (
+                        if dedup_hashset.contains(&key) {
+                            6.0
+                        } else {
+                            1.0
+                        },
+                        0.0,
+                    ),
+                    |acc, w| {
+                        let weight = feature_extraction
+                            .get_word_features(w)
+                            .unwrap_or(&Features::default())
+                            .get_weight();
+
+                        (acc.0 * weight, acc.1 + weight)
+                    },
+                );
+                let tf = pc.get_surface_forms().len() as f32;
                 let sum = if sum == -1.0 { 1.0 - f32::EPSILON } else { sum };
 
                 acc.insert(key, prod / (tf * (1.0 + sum)));
