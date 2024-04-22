@@ -23,7 +23,7 @@ use regex::Regex;
 use super::{
     candidate_selection::{CandidateSelection, PreCandidate},
     context_builder::ContextBuilder,
-    feature_extraction::FeatureExtraction,
+    feature_extraction::FeatureExtror,
     occurrences_builder::OccurrencesBuilder,
     sentences_builder::SentencesBuilder,
 };
@@ -56,11 +56,6 @@ impl YakeLogic {
     ) -> HashMap<String, f32> {
         let processed_text = process_text(text);
         let sentences = SentencesBuilder::build_sentences(processed_text.as_ref());
-        let feature_extraction = FeatureExtraction::new(
-            OccurrencesBuilder::build_occurrences(&sentences, &punctuation, &stop_words),
-            ContextBuilder::build_context(&sentences, window_size),
-            &sentences,
-        );
         let candidates = CandidateSelection::select_candidates(
             &sentences,
             ngram,
@@ -69,7 +64,15 @@ impl YakeLogic {
             threshold,
         );
         let dedup_hashset = Self::build_de_duplicate_hashset(&candidates);
-        Self::score_candidates(feature_extraction.0, candidates, dedup_hashset)
+        Self::score_candidates(
+            FeatureExtror::extract_features(
+                OccurrencesBuilder::build_occurrences(&sentences, &punctuation, &stop_words),
+                ContextBuilder::build_context(&sentences, window_size),
+                &sentences,
+            ),
+            candidates,
+            dedup_hashset,
+        )
     }
 
     fn build_de_duplicate_hashset<'a>(

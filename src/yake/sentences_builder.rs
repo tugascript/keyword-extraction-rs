@@ -33,14 +33,14 @@ impl<'a> Sentence<'a> {
             .filter_map(|w| {
                 let trimmed = w.trim();
 
-                if trimmed.is_empty() || trimmed == " " {
+                if trimmed.is_empty() {
                     return None;
                 }
 
                 if let Some(regex) = special_char_regex {
                     let value = regex.replace_all(trimmed, "");
 
-                    if value.is_empty() || value == " " {
+                    if value.is_empty() {
                         return None;
                     }
 

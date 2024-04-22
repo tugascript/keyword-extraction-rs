@@ -24,14 +24,14 @@ use super::{
     sentences_builder::Sentence,
 };
 
-pub struct FeatureExtraction<'a>(pub HashMap<&'a str, f32>);
+pub struct FeatureExtror;
 
-impl<'a> FeatureExtraction<'a> {
-    pub fn new(
+impl<'a> FeatureExtror {
+    pub fn extract_features(
         occurrences: Occurrences<'a>,
         contexts: LeftRightContext<'a>,
         sentences: &'a [Sentence<'a>],
-    ) -> Self {
+    ) -> HashMap<&'a str, f32> {
         let tf_values = occurrences
             .values()
             .map(|o| o.len())
@@ -49,102 +49,99 @@ impl<'a> FeatureExtraction<'a> {
             .unwrap_or(f32::EPSILON);
         let sentence_len = sentences.len() as f32;
 
-        Self(
-            occurrences
-                .into_iter()
-                .map(|(word, occurrences)| {
-                    let tf = occurrences.len() as f32;
+        occurrences
+            .into_iter()
+            .map(|(word, occurrences)| {
+                let tf = occurrences.len() as f32;
 
-                    let all_upper_check = |w: &str| {
-                        let is_large = w.graphemes(true).count() > 1;
-                        let upper_regex = get_upper_case_regex();
-                        match upper_regex {
-                            Some(r) => is_large && r.is_match(w),
-                            None => is_large && w.to_uppercase().as_str() == w,
+                let all_upper_check = |w: &str| {
+                    let is_large = w.graphemes(true).count() > 1;
+                    let upper_regex = get_upper_case_regex();
+                    match upper_regex {
+                        Some(r) => is_large && r.is_match(w),
+                        None => is_large && w.to_uppercase().as_str() == w,
+                    }
+                };
+                let capitalized_check = |w: &str| {
+                    let capitalized_regex = get_capitalized_regex();
+                    match capitalized_regex {
+                        Some(r) => r.is_match(w),
+                        None => {
+                            w.chars().next().unwrap().is_uppercase()
+                                && w.chars().skip(1).all(char::is_lowercase)
                         }
-                    };
-                    let capitalized_check = |w: &str| {
-                        let capitalized_regex = get_capitalized_regex();
-                        match capitalized_regex {
-                            Some(r) => r.is_match(w),
-                            None => {
-                                w.chars().next().unwrap().is_uppercase()
-                                    && w.chars().skip(1).all(char::is_lowercase)
-                            }
-                        }
-                    };
+                    }
+                };
 
-                    let mut tf_upper = 0.0_f32;
-                    let mut tf_capitalized = 0.0_f32;
-                    occurrences.iter().for_each(|occurrence| {
-                        let w = occurrence.word;
-                        tf_upper += if all_upper_check(w) { 1.0 } else { 0.0 };
-                        tf_capitalized += if capitalized_check(w) { 1.0 } else { 0.0 };
-                    });
+                let mut tf_upper = 0.0_f32;
+                let mut tf_capitalized = 0.0_f32;
+                occurrences.iter().for_each(|occurrence| {
+                    let w = occurrence.word;
+                    tf_upper += if all_upper_check(w) { 1.0 } else { 0.0 };
+                    tf_capitalized += if capitalized_check(w) { 1.0 } else { 0.0 };
+                });
 
-                    let casing = tf_upper.max(tf_capitalized) / (1.0 + tf.ln());
-                    let frequency = tf / (tf_mean + tf_std + f32::EPSILON);
+                let casing = tf_upper.max(tf_capitalized) / (1.0 + tf.ln());
+                let frequency = tf / (tf_mean + tf_std + f32::EPSILON);
 
-                    let occ_len = occurrences.len();
-                    let median = if occ_len == 0 {
-                        0.0
-                    } else if occ_len == 1 {
-                        occurrences[0].sentence_index as f32
-                    } else if occ_len % 2 == 0 {
-                        occurrences[occ_len / 2].sentence_index as f32
-                    } else {
-                        let mid = occ_len / 2;
-                        (occurrences[mid].sentence_index + occurrences[mid - 1].sentence_index)
-                            as f32
-                            / 2.0
-                    };
+                let occ_len = occurrences.len();
+                let median = if occ_len == 0 {
+                    0.0
+                } else if occ_len == 1 {
+                    occurrences[0].sentence_index as f32
+                } else if occ_len % 2 == 0 {
+                    occurrences[occ_len / 2].sentence_index as f32
+                } else {
+                    let mid = occ_len / 2;
+                    (occurrences[mid].sentence_index + occurrences[mid - 1].sentence_index) as f32
+                        / 2.0
+                };
 
-                    let position = (3.0 + median).ln().ln();
+                let position = (3.0 + median).ln().ln();
 
-                    let left_right_context = contexts
-                        .get(word)
-                        .map(|(v1, v2)| (v1.as_slice(), v2.as_slice()))
-                        .unwrap_or((&[], &[]));
-                    let left_context_unique = left_right_context
-                        .0
-                        .iter()
-                        .copied()
-                        .collect::<HashSet<&str>>();
-                    let wl = if !left_context_unique.is_empty() {
-                        left_context_unique.len() as f32
-                            / (left_right_context.0.len() as f32 + f32::EPSILON)
-                    } else {
-                        0.0_f32
-                    };
+                let left_right_context = contexts
+                    .get(word)
+                    .map(|(v1, v2)| (v1.as_slice(), v2.as_slice()))
+                    .unwrap_or((&[], &[]));
+                let left_context_unique = left_right_context
+                    .0
+                    .iter()
+                    .copied()
+                    .collect::<HashSet<&str>>();
+                let wl = if !left_context_unique.is_empty() {
+                    left_context_unique.len() as f32
+                        / (left_right_context.0.len() as f32 + f32::EPSILON)
+                } else {
+                    0.0_f32
+                };
 
-                    let right_context_unique = left_right_context
-                        .1
-                        .iter()
-                        .copied()
-                        .collect::<HashSet<&str>>();
+                let right_context_unique = left_right_context
+                    .1
+                    .iter()
+                    .copied()
+                    .collect::<HashSet<&str>>();
 
-                    let wr = if !right_context_unique.is_empty() {
-                        right_context_unique.len() as f32
-                            / (left_right_context.1.len() as f32 + f32::EPSILON)
-                    } else {
-                        0.0_f32
-                    };
+                let wr = if !right_context_unique.is_empty() {
+                    right_context_unique.len() as f32
+                        / (left_right_context.1.len() as f32 + f32::EPSILON)
+                } else {
+                    0.0_f32
+                };
 
-                    let relatedness = 1.0 + ((wl + wr) * (tf / tf_max));
+                let relatedness = 1.0 + ((wl + wr) * (tf / tf_max));
 
-                    let unique_sentences = occurrences
-                        .iter()
-                        .map(|occ| occ.sentence_index)
-                        .collect::<HashSet<usize>>();
-                    let different = unique_sentences.len() as f32 / (sentence_len + f32::EPSILON);
+                let unique_sentences = occurrences
+                    .iter()
+                    .map(|occ| occ.sentence_index)
+                    .collect::<HashSet<usize>>();
+                let different = unique_sentences.len() as f32 / (sentence_len + f32::EPSILON);
 
-                    (
-                        word,
-                        (relatedness * position)
-                            / (casing + (frequency / relatedness) + (different / relatedness)),
-                    )
-                })
-                .collect(),
-        )
+                (
+                    word,
+                    (relatedness * position)
+                        / (casing + (frequency / relatedness) + (different / relatedness)),
+                )
+            })
+            .collect()
     }
 }
