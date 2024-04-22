@@ -116,9 +116,10 @@ impl YakeLogic {
         candidates: &'a Candidates,
         dedup_hashset: HashSet<&'a str>,
     ) -> HashMap<&'a str, f32> {
-        candidates
+        let mut max = 0.0_f32;
+        let values = candidates
             .candidates()
-            .fold(HashMap::new(), |mut acc, (k, pc)| {
+            .map(|(k, pc)| {
                 let key = k.as_str();
                 let (prod, sum) = pc.get_lexical_form().iter().fold(
                     (
@@ -140,9 +141,15 @@ impl YakeLogic {
                 );
                 let tf = pc.get_surface_forms().len() as f32;
                 let sum = if sum == -1.0 { 1.0 - f32::EPSILON } else { sum };
+                let value = 1.0 / (prod / (tf * (1.0 + sum)));
 
-                acc.insert(key, prod / (tf * (1.0 + sum)));
-                acc
+                if value > max {
+                    max = value;
+                }
+
+                (key, value)
             })
+            .collect::<Vec<(&str, f32)>>();
+        values.into_iter().map(|(k, v)| (k, v / max)).collect()
     }
 }
