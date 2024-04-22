@@ -20,13 +20,13 @@ use unicode_segmentation::UnicodeSegmentation;
 use crate::common::{get_capitalized_regex, get_upper_case_regex};
 
 use super::{
-    context_builder::{LeftRightContext, Occurrences},
-    yake_tokenizer::Sentence,
+    context_builder::LeftRightContext, occurrences_builder::Occurrences,
+    sentences_builder::Sentence,
 };
 
-pub struct FeatureExtraction(pub HashMap<String, f32>);
+pub struct FeatureExtraction<'a>(pub HashMap<&'a str, f32>);
 
-impl<'a> FeatureExtraction {
+impl<'a> FeatureExtraction<'a> {
     pub fn new(
         occurrences: Occurrences<'a>,
         contexts: LeftRightContext<'a>,
@@ -77,15 +77,9 @@ impl<'a> FeatureExtraction {
                     let mut tf_upper = 0.0_f32;
                     let mut tf_capitalized = 0.0_f32;
                     occurrences.iter().for_each(|occurrence| {
-                        let w = occurrence.get_word();
+                        let w = occurrence.word;
                         tf_upper += if all_upper_check(w) { 1.0 } else { 0.0 };
-                        tf_capitalized += if capitalized_check(w)
-                            && occurrence.get_shift() != occurrence.get_shift_offset()
-                        {
-                            1.0
-                        } else {
-                            0.0
-                        };
+                        tf_capitalized += if capitalized_check(w) { 1.0 } else { 0.0 };
                     });
 
                     let casing = tf_upper.max(tf_capitalized) / (1.0 + tf.ln());
@@ -95,13 +89,12 @@ impl<'a> FeatureExtraction {
                     let median = if occ_len == 0 {
                         0.0
                     } else if occ_len == 1 {
-                        occurrences[0].get_sentence_index() as f32
+                        occurrences[0].sentence_index as f32
                     } else if occ_len % 2 == 0 {
-                        occurrences[occ_len / 2].get_sentence_index() as f32
+                        occurrences[occ_len / 2].sentence_index as f32
                     } else {
                         let mid = occ_len / 2;
-                        (occurrences[mid].get_sentence_index()
-                            + occurrences[mid - 1].get_sentence_index())
+                        (occurrences[mid].sentence_index + occurrences[mid - 1].sentence_index)
                             as f32
                             / 2.0
                     };
@@ -109,7 +102,7 @@ impl<'a> FeatureExtraction {
                     let position = (3.0 + median).ln().ln();
 
                     let left_right_context = contexts
-                        .get(&word)
+                        .get(word)
                         .map(|(v1, v2)| (v1.as_slice(), v2.as_slice()))
                         .unwrap_or((&[], &[]));
                     let left_context_unique = left_right_context
@@ -141,7 +134,7 @@ impl<'a> FeatureExtraction {
 
                     let unique_sentences = occurrences
                         .iter()
-                        .map(|occ| occ.get_sentence_index())
+                        .map(|occ| occ.sentence_index)
                         .collect::<HashSet<usize>>();
                     let different = unique_sentences.len() as f32 / (sentence_len + f32::EPSILON);
 

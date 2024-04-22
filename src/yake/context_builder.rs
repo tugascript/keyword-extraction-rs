@@ -13,133 +13,48 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with Rust Keyword Extraction. If not, see <http://www.gnu.org/licenses/>.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
-use unicode_segmentation::UnicodeSegmentation;
+use super::sentences_builder::Sentence;
 
-use super::yake_tokenizer::Sentence;
+pub type LeftRightContext<'a> = HashMap<&'a str, (Vec<&'a str>, Vec<&'a str>)>;
 
-pub struct Occurrence<'a> {
-    shift_offset: usize,
-    shift: usize,
-    sentence_index: usize,
-    word: &'a str,
-}
+pub struct ContextBuilder;
 
-impl<'a> Occurrence<'a> {
-    pub fn new(word: &'a str, shift: usize, sentence_index: usize, word_index: usize) -> Self {
-        Self {
-            word,
-            sentence_index,
-            shift_offset: shift + word_index,
-            shift,
-        }
-    }
-
-    pub fn get_word(&self) -> &'a str {
-        self.word
-    }
-
-    pub fn get_sentence_index(&self) -> usize {
-        self.sentence_index
-    }
-
-    pub fn get_shift_offset(&self) -> usize {
-        self.shift_offset
-    }
-
-    pub fn get_shift(&self) -> usize {
-        self.shift
-    }
-}
-
-pub type Occurrences<'a> = HashMap<String, Vec<Occurrence<'a>>>;
-pub type LeftRightContext<'a> = HashMap<String, (Vec<&'a str>, Vec<&'a str>)>;
-
-pub struct Context<'a> {
-    pub occurrences: Occurrences<'a>,
-    pub contexts: LeftRightContext<'a>,
-}
-
-fn is_punctuation(word: &str, punctuation: &HashSet<&str>) -> bool {
-    word.is_empty() || ((word.graphemes(true).count() == 1) && punctuation.contains(word))
-}
-
-fn build_occurrences<'a>(
-    sentences: &'a [Sentence<'a>],
-    punctuation: &'a HashSet<&'a str>,
-    stop_words: &'a HashSet<&'a str>,
-) -> Occurrences<'a> {
-    sentences
-        .iter()
-        .enumerate()
-        .fold(Occurrences::new(), |mut acc, (i, sentence)| {
-            let shift = sentences
-                .iter()
-                .take(i)
-                .map(|s| s.get_length())
-                .sum::<usize>();
-
-            sentence
-                .get_words()
-                .iter()
-                .enumerate()
-                .for_each(|(j, word)| {
-                    if is_punctuation(word, punctuation) || stop_words.contains(word.as_ref()) {
-                        return;
-                    }
-
-                    let entry = acc.entry(word.to_lowercase()).or_default();
-                    entry.push(Occurrence::new(word, shift, i, j));
-                });
-            acc
-        })
-}
-
-fn build_contexts<'a>(sentences: &'a [Sentence<'a>], window_size: usize) -> LeftRightContext<'a> {
-    sentences
-        .iter()
-        .fold(LeftRightContext::new(), |mut acc, sentence| {
-            sentence
-                .get_words()
-                .iter()
-                .fold(Vec::<&str>::new(), |mut buffer, w1| {
-                    let w1_lower = w1.to_lowercase();
-                    let w1_str = w1.as_ref();
-
-                    buffer.iter().for_each(|w2| {
-                        let entry_1 = acc
-                            .entry(w1_lower.to_string())
-                            .or_insert((Vec::new(), Vec::new()));
-                        entry_1.0.push(*w2);
-                        let entry_2 = acc
-                            .entry(w2.to_lowercase())
-                            .or_insert((Vec::new(), Vec::new()));
-                        entry_2.1.push(w1_str);
-                    });
-
-                    buffer.push(w1_str);
-
-                    if buffer.len() > window_size {
-                        buffer.remove(0);
-                    }
-
-                    buffer
-                });
-            acc
-        })
-}
-
-impl<'a> Context<'a> {
-    pub fn new(
+impl<'a> ContextBuilder {
+    pub fn build_context(
         sentences: &'a [Sentence<'a>],
-        punctuation: &'a HashSet<&'a str>,
-        stop_words: &'a HashSet<&'a str>,
         window_size: usize,
-    ) -> Context<'a> {
-        Self {
-            occurrences: build_occurrences(sentences, punctuation, stop_words),
-            contexts: build_contexts(sentences, window_size),
-        }
+    ) -> LeftRightContext<'a> {
+        sentences
+            .iter()
+            .fold(LeftRightContext::new(), |mut acc, sentence| {
+                sentence.words.iter().enumerate().fold(
+                    Vec::<(&str, usize)>::new(),
+                    |mut buffer, (i, w1)| {
+                        let w1_str = w1.as_ref();
+
+                        buffer.iter().for_each(|(w2, j)| {
+                            let entry_1 = acc
+                                .entry(sentence.stemmed[i].as_str())
+                                .or_insert((Vec::new(), Vec::new()));
+                            entry_1.0.push(*w2);
+                            let entry_2 = acc
+                                .entry(sentence.stemmed[*j].as_str())
+                                .or_insert((Vec::new(), Vec::new()));
+                            entry_2.1.push(w1_str);
+                        });
+
+                        buffer.push((w1_str, i));
+
+                        if buffer.len() > window_size {
+                            buffer.remove(0);
+                        }
+
+                        buffer
+                    },
+                );
+                acc
+            })
     }
 }

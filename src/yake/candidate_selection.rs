@@ -18,12 +18,12 @@ use std::{
     collections::{HashMap, HashSet},
 };
 
-use super::{levenshtein::Levenshtein, yake_tokenizer::Sentence};
+use super::{levenshtein::Levenshtein, sentences_builder::Sentence};
 
 #[derive(Clone)]
 pub struct PreCandidate<'a> {
-    lexical_form: Vec<&'a str>,
-    surface_forms: Vec<Vec<&'a str>>,
+    pub lexical_form: Vec<&'a str>,
+    pub surface_forms: Vec<Vec<&'a str>>,
 }
 
 impl<'a> PreCandidate<'a> {
@@ -37,32 +37,24 @@ impl<'a> PreCandidate<'a> {
     fn add(&mut self, words: Vec<&'a str>) {
         self.surface_forms.push(words);
     }
-
-    pub fn get_lexical_form(&self) -> &[&'a str] {
-        &self.lexical_form
-    }
-
-    pub fn get_surface_forms(&self) -> &[Vec<&'a str>] {
-        &self.surface_forms
-    }
 }
 
 type PreCandidates<'a> = HashMap<String, PreCandidate<'a>>;
 
-fn build_pre_candidates<'a>(sentences: &'a [Sentence], ngram: usize) -> PreCandidates<'a> {
+fn build_pre_candidates<'a>(sentences: &'a [Sentence<'a>], ngram: usize) -> PreCandidates<'a> {
     sentences
         .iter()
         .fold(PreCandidates::new(), |mut acc, sentence| {
-            let sentence_len = sentence.get_length();
+            let sentence_len = sentence.length;
             let skip = min(ngram, sentence_len);
 
             (0..sentence_len).for_each(|i| {
                 (i + 1..=min(i + skip, sentence_len)).for_each(|j: usize| {
-                    let stems = sentence.get_stemmed()[i..j]
+                    let stems = sentence.stemmed[i..j]
                         .iter()
                         .map(|s| s.as_str())
                         .collect::<Vec<&'a str>>();
-                    let words = sentence.get_words()[i..j]
+                    let words = sentence.words[i..j]
                         .iter()
                         .map(|s| s.as_ref())
                         .collect::<Vec<&'a str>>();
@@ -84,18 +76,13 @@ fn filter_pre_candidates<'a>(
     let first_iter = pre_candidates
         .into_iter()
         .filter_map(|(v, pc)| {
-            if pc.get_surface_forms().len() == 0 {
+            if pc.surface_forms.len() == 0 {
                 return None;
             }
-            if pc.get_surface_forms()[0].len() == 0 {
+            if pc.surface_forms[0].len() == 0 {
                 return None;
             }
-            let unique_words = pc
-                .get_lexical_form()
-                .iter()
-                .copied()
-                .collect::<HashSet<&str>>();
-            if unique_words.iter().any(|w| {
+            if pc.lexical_form.iter().any(|w| {
                 stop_words.contains(w) || punctuation.contains(w) || w.parse::<f32>().is_ok()
             }) {
                 return None;
@@ -108,7 +95,7 @@ fn filter_pre_candidates<'a>(
         .iter()
         .enumerate()
         .filter_map(|(i, (k1, v))| {
-            for (k2, _) in first_iter[i + 1..].iter() {
+            for (k2, _) in &first_iter[i + 1..] {
                 let lev = Levenshtein::new(&k1, k2);
                 if lev.ratio() >= threshold {
                     return None;
@@ -119,21 +106,21 @@ fn filter_pre_candidates<'a>(
         .collect()
 }
 
-pub struct Candidates<'a>(pub PreCandidates<'a>);
+pub struct CandidateSelection;
 
-impl<'a> Candidates<'a> {
-    pub fn new(
-        sentences: &'a [Sentence],
+impl<'a> CandidateSelection {
+    pub fn select_candidates(
+        sentences: &'a [Sentence<'a>],
         ngram: usize,
         stop_words: &'a HashSet<&'a str>,
         punctuation: &'a HashSet<&'a str>,
         threshold: f32,
-    ) -> Self {
-        Self(filter_pre_candidates(
+    ) -> PreCandidates<'a> {
+        filter_pre_candidates(
             build_pre_candidates(sentences, ngram),
             stop_words,
             punctuation,
             threshold,
-        ))
+        )
     }
 }

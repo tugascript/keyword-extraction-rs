@@ -21,10 +21,11 @@ use std::{
 use regex::Regex;
 
 use super::{
-    candidate_selection::{Candidates, PreCandidate},
-    context_builder::Context,
+    candidate_selection::{CandidateSelection, PreCandidate},
+    context_builder::ContextBuilder,
     feature_extraction::FeatureExtraction,
-    yake_tokenizer::YakeTokenizer,
+    occurrences_builder::OccurrencesBuilder,
+    sentences_builder::SentencesBuilder,
 };
 
 pub struct YakeLogic;
@@ -54,12 +55,19 @@ impl YakeLogic {
         window_size: usize,
     ) -> HashMap<String, f32> {
         let processed_text = process_text(text);
-        let tokenizer = YakeTokenizer::new(processed_text.as_ref());
-        let sentences = tokenizer.get_sentences();
-        let context = Context::new(sentences, &punctuation, &stop_words, window_size);
-        let feature_extraction =
-            FeatureExtraction::new(context.occurrences, context.contexts, sentences);
-        let candidates = Candidates::new(sentences, ngram, &stop_words, &punctuation, threshold).0;
+        let sentences = SentencesBuilder::build_sentences(processed_text.as_ref());
+        let feature_extraction = FeatureExtraction::new(
+            OccurrencesBuilder::build_occurrences(&sentences, &punctuation, &stop_words),
+            ContextBuilder::build_context(&sentences, window_size),
+            &sentences,
+        );
+        let candidates = CandidateSelection::select_candidates(
+            &sentences,
+            ngram,
+            &stop_words,
+            &punctuation,
+            threshold,
+        );
         let dedup_hashset = Self::build_de_duplicate_hashset(&candidates);
         Self::score_candidates(feature_extraction.0, candidates, dedup_hashset)
     }
@@ -68,8 +76,8 @@ impl YakeLogic {
         candidates: &'a HashMap<String, PreCandidate<'a>>,
     ) -> HashSet<String> {
         candidates.iter().fold(HashSet::new(), |mut acc, (_, pc)| {
-            if pc.get_lexical_form().len() > 1 {
-                pc.get_lexical_form().iter().for_each(|w| {
+            if pc.lexical_form.len() > 1 {
+                pc.lexical_form.iter().for_each(|w| {
                     acc.insert(w.to_string());
                 });
             }
@@ -78,12 +86,8 @@ impl YakeLogic {
         })
     }
 
-    /**
-     * Formula
-     * S(kw) = Π(H) / TF(kw)(1 + Σ(H))
-     **/
     fn score_candidates<'a>(
-        feature_extraction: HashMap<String, f32>,
+        feature_extraction: HashMap<&'a str, f32>,
         candidates: HashMap<String, PreCandidate<'a>>,
         dedup_hashset: HashSet<String>,
     ) -> HashMap<String, f32> {
@@ -91,7 +95,7 @@ impl YakeLogic {
         let values = candidates
             .into_iter()
             .map(|(k, pc)| {
-                let (prod, sum) = pc.get_lexical_form().iter().fold(
+                let (prod, sum) = pc.lexical_form.iter().fold(
                     (if dedup_hashset.contains(&k) { 6.0 } else { 1.0 }, 0.0),
                     |acc, w| {
                         let weight = *feature_extraction.get(*w).unwrap_or(&0.0);
@@ -99,7 +103,7 @@ impl YakeLogic {
                         (acc.0 * weight, acc.1 + weight)
                     },
                 );
-                let tf = pc.get_surface_forms().len() as f32;
+                let tf = pc.surface_forms.len() as f32;
                 let sum = if sum == -1.0 { 1.0 - f32::EPSILON } else { sum };
                 let value = 1.0 / (prod / (tf * (1.0 + sum)));
 
