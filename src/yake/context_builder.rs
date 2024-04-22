@@ -57,8 +57,8 @@ pub type Occurrences<'a> = HashMap<String, Vec<Occurrence<'a>>>;
 pub type LeftRightContext<'a> = HashMap<String, (Vec<&'a str>, Vec<&'a str>)>;
 
 pub struct Context<'a> {
-    occurrences: Occurrences<'a>,
-    contexts: LeftRightContext<'a>,
+    pub occurrences: Occurrences<'a>,
+    pub contexts: LeftRightContext<'a>,
 }
 
 fn is_punctuation(word: &str, punctuation: &HashSet<&str>) -> bool {
@@ -68,6 +68,7 @@ fn is_punctuation(word: &str, punctuation: &HashSet<&str>) -> bool {
 fn build_occurrences<'a>(
     sentences: &'a [Sentence<'a>],
     punctuation: &'a HashSet<&'a str>,
+    stop_words: &'a HashSet<&'a str>,
 ) -> Occurrences<'a> {
     sentences
         .iter()
@@ -84,7 +85,7 @@ fn build_occurrences<'a>(
                 .iter()
                 .enumerate()
                 .for_each(|(j, word)| {
-                    if is_punctuation(word, punctuation) {
+                    if is_punctuation(word, punctuation) || stop_words.contains(word.as_ref()) {
                         return;
                     }
 
@@ -133,21 +134,12 @@ impl<'a> Context<'a> {
     pub fn new(
         sentences: &'a [Sentence<'a>],
         punctuation: &'a HashSet<&'a str>,
+        stop_words: &'a HashSet<&'a str>,
         window_size: usize,
     ) -> Context<'a> {
         Self {
-            occurrences: build_occurrences(sentences, punctuation),
+            occurrences: build_occurrences(sentences, punctuation, stop_words),
             contexts: build_contexts(sentences, window_size),
         }
-    }
-
-    pub fn get_word_context(&self, word: &str) -> Option<(&[&'a str], &[&'a str])> {
-        self.contexts
-            .get(word)
-            .map(|(v1, v2)| (v1.as_slice(), v2.as_slice()))
-    }
-
-    pub fn occurrences(&self) -> impl Iterator<Item = (&String, &Vec<Occurrence<'a>>)> {
-        self.occurrences.iter()
     }
 }

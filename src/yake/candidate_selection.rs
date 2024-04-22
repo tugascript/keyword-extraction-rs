@@ -18,8 +18,9 @@ use std::{
     collections::{HashMap, HashSet},
 };
 
-use super::yake_tokenizer::Sentence;
+use super::{levenshtein::Levenshtein, yake_tokenizer::Sentence};
 
+#[derive(Clone)]
 pub struct PreCandidate<'a> {
     lexical_form: Vec<&'a str>,
     surface_forms: Vec<Vec<&'a str>>,
@@ -78,15 +79,16 @@ fn filter_pre_candidates<'a>(
     pre_candidates: PreCandidates<'a>,
     stop_words: &'a HashSet<&'a str>,
     punctuation: &'a HashSet<&'a str>,
-) -> PreCandidates<'a> {
-    pre_candidates
+    threshold: f32,
+) -> HashMap<String, PreCandidate<'a>> {
+    let first_iter = pre_candidates
         .into_iter()
-        .filter(|(_, pc)| {
+        .filter_map(|(v, pc)| {
             if pc.get_surface_forms().len() == 0 {
-                return false;
+                return None;
             }
             if pc.get_surface_forms()[0].len() == 0 {
-                return false;
+                return None;
             }
             let unique_words = pc
                 .get_lexical_form()
@@ -96,15 +98,28 @@ fn filter_pre_candidates<'a>(
             if unique_words.iter().any(|w| {
                 stop_words.contains(w) || punctuation.contains(w) || w.parse::<f32>().is_ok()
             }) {
-                return false;
+                return None;
             }
 
-            true
+            Some((v, pc))
+        })
+        .collect::<Vec<(String, PreCandidate<'a>)>>();
+    first_iter
+        .iter()
+        .enumerate()
+        .filter_map(|(i, (k1, v))| {
+            for (k2, _) in first_iter[i + 1..].iter() {
+                let lev = Levenshtein::new(&k1, k2);
+                if lev.ratio() >= threshold {
+                    return None;
+                }
+            }
+            Some((k1.to_string(), v.to_owned()))
         })
         .collect()
 }
 
-pub struct Candidates<'a>(PreCandidates<'a>);
+pub struct Candidates<'a>(pub PreCandidates<'a>);
 
 impl<'a> Candidates<'a> {
     pub fn new(
@@ -112,15 +127,13 @@ impl<'a> Candidates<'a> {
         ngram: usize,
         stop_words: &'a HashSet<&'a str>,
         punctuation: &'a HashSet<&'a str>,
+        threshold: f32,
     ) -> Self {
         Self(filter_pre_candidates(
             build_pre_candidates(sentences, ngram),
             stop_words,
             punctuation,
+            threshold,
         ))
-    }
-
-    pub fn candidates(&self) -> impl Iterator<Item = (&String, &PreCandidate)> {
-        self.0.iter()
     }
 }

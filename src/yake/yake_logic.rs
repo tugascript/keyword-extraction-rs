@@ -21,10 +21,9 @@ use std::{
 use regex::Regex;
 
 use super::{
-    candidate_selection::Candidates,
+    candidate_selection::{Candidates, PreCandidate},
     context_builder::Context,
-    feature_extraction::{FeatureExtraction, Features},
-    levenshtein::Levenshtein,
+    feature_extraction::FeatureExtraction,
     yake_tokenizer::YakeTokenizer,
 };
 
@@ -57,54 +56,26 @@ impl YakeLogic {
         let processed_text = process_text(text);
         let tokenizer = YakeTokenizer::new(processed_text.as_ref());
         let sentences = tokenizer.get_sentences();
-        let context = Context::new(sentences, &punctuation, window_size);
-        let feature_extraction = FeatureExtraction::new(&context, sentences, &stop_words);
-        let candidates = Candidates::new(sentences, ngram, &stop_words, &punctuation);
-        Self::filter_candidates(
-            &candidates,
-            Self::score_candidates(
-                &feature_extraction,
-                &candidates,
-                Self::build_de_duplicate_hashset(&candidates),
-            ),
-            threshold,
-        )
+        let context = Context::new(sentences, &punctuation, &stop_words, window_size);
+        let feature_extraction =
+            FeatureExtraction::new(context.occurrences, context.contexts, sentences);
+        let candidates = Candidates::new(sentences, ngram, &stop_words, &punctuation, threshold).0;
+        let dedup_hashset = Self::build_de_duplicate_hashset(&candidates);
+        Self::score_candidates(feature_extraction.0, candidates, dedup_hashset)
     }
 
-    // Filter Pre Candidates into Candidates
-    // Note: this reverses the order, but order is not important for the final calculation
-    fn filter_candidates(
-        candidates: &Candidates,
-        score: HashMap<&str, f32>,
-        threshold: f32,
-    ) -> HashMap<String, f32> {
-        candidates
-            .candidates()
-            .enumerate()
-            .filter_map(|(i, (k1, _))| {
-                for (k2, _) in candidates.candidates().skip(i + 1) {
-                    let lev = Levenshtein::new(k1, k2);
-                    if lev.ratio() >= threshold {
-                        return None;
-                    }
-                }
-                Some((k1.to_string(), *score.get(k1.as_str()).unwrap_or(&0.0)))
-            })
-            .collect()
-    }
+    fn build_de_duplicate_hashset<'a>(
+        candidates: &'a HashMap<String, PreCandidate<'a>>,
+    ) -> HashSet<String> {
+        candidates.iter().fold(HashSet::new(), |mut acc, (_, pc)| {
+            if pc.get_lexical_form().len() > 1 {
+                pc.get_lexical_form().iter().for_each(|w| {
+                    acc.insert(w.to_string());
+                });
+            }
 
-    fn build_de_duplicate_hashset<'a>(candidates: &'a Candidates) -> HashSet<&'a str> {
-        candidates
-            .candidates()
-            .fold(HashSet::new(), |mut acc, (_, pc)| {
-                if pc.get_lexical_form().len() > 1 {
-                    pc.get_lexical_form().iter().for_each(|w| {
-                        acc.insert(*w);
-                    });
-                }
-
-                acc
-            })
+            acc
+        })
     }
 
     /**
@@ -112,29 +83,18 @@ impl YakeLogic {
      * S(kw) = Π(H) / TF(kw)(1 + Σ(H))
      **/
     fn score_candidates<'a>(
-        feature_extraction: &'a FeatureExtraction,
-        candidates: &'a Candidates,
-        dedup_hashset: HashSet<&'a str>,
-    ) -> HashMap<&'a str, f32> {
+        feature_extraction: HashMap<String, f32>,
+        candidates: HashMap<String, PreCandidate<'a>>,
+        dedup_hashset: HashSet<String>,
+    ) -> HashMap<String, f32> {
         let mut max = 0.0_f32;
         let values = candidates
-            .candidates()
+            .into_iter()
             .map(|(k, pc)| {
-                let key = k.as_str();
                 let (prod, sum) = pc.get_lexical_form().iter().fold(
-                    (
-                        if dedup_hashset.contains(&key) {
-                            6.0
-                        } else {
-                            1.0
-                        },
-                        0.0,
-                    ),
+                    (if dedup_hashset.contains(&k) { 6.0 } else { 1.0 }, 0.0),
                     |acc, w| {
-                        let weight = feature_extraction
-                            .get_word_features(w)
-                            .unwrap_or(&Features::default())
-                            .get_weight();
+                        let weight = *feature_extraction.get(*w).unwrap_or(&0.0);
 
                         (acc.0 * weight, acc.1 + weight)
                     },
@@ -147,9 +107,9 @@ impl YakeLogic {
                     max = value;
                 }
 
-                (key, value)
+                (k, value)
             })
-            .collect::<Vec<(&str, f32)>>();
+            .collect::<Vec<(String, f32)>>();
         values.into_iter().map(|(k, v)| (k, v / max)).collect()
     }
 }
