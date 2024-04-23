@@ -73,13 +73,25 @@ impl<'a> FeatureExtractor {
                     }
                 };
 
-                let mut tf_upper = 0.0_f32;
-                let mut tf_capitalized = 0.0_f32;
-                occurrences.iter().for_each(|occurrence| {
-                    let w = occurrence.word;
-                    tf_upper += if all_upper_check(w) { 1.0 } else { 0.0 };
-                    tf_capitalized += if capitalized_check(w) { 1.0 } else { 0.0 };
-                });
+                let (tf_upper, tf_capitalized) = occurrences.iter().fold(
+                    (0.0_f32, 0.0_f32),
+                    |(tf_upper, tf_capitalized), occurrence| {
+                        (
+                            tf_upper
+                                + if all_upper_check(occurrence.word) {
+                                    1.0
+                                } else {
+                                    0.0
+                                },
+                            tf_capitalized
+                                + if capitalized_check(occurrence.word) {
+                                    1.0
+                                } else {
+                                    0.0
+                                },
+                        )
+                    },
+                );
 
                 let casing = tf_upper.max(tf_capitalized) / (1.0 + tf.ln());
                 let frequency = tf / (tf_mean + tf_std + f32::EPSILON);
