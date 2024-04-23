@@ -24,9 +24,9 @@ use super::{
     sentences_builder::Sentence,
 };
 
-pub struct FeatureExtror;
+pub struct FeatureExtractor;
 
-impl<'a> FeatureExtror {
+impl<'a> FeatureExtractor {
     pub fn extract_features(
         occurrences: Occurrences<'a>,
         contexts: LeftRightContext<'a>,

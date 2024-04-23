@@ -23,7 +23,7 @@ use regex::Regex;
 use super::{
     candidate_selection::{CandidateSelection, PreCandidate},
     context_builder::ContextBuilder,
-    feature_extraction::FeatureExtror,
+    feature_extraction::FeatureExtractor,
     occurrences_builder::OccurrencesBuilder,
     sentences_builder::SentencesBuilder,
 };
@@ -50,22 +50,16 @@ impl YakeLogic {
         text: &str,
         stop_words: HashSet<&str>,
         punctuation: HashSet<&str>,
-        threshold: f32,
         ngram: usize,
         window_size: usize,
     ) -> HashMap<String, f32> {
         let processed_text = process_text(text);
         let sentences = SentencesBuilder::build_sentences(processed_text.as_ref());
-        let candidates = CandidateSelection::select_candidates(
-            &sentences,
-            ngram,
-            &stop_words,
-            &punctuation,
-            threshold,
-        );
-        let dedup_hashset = Self::build_de_duplicate_hashset(&candidates);
+        let candidates =
+            CandidateSelection::select_candidates(&sentences, ngram, &stop_words, &punctuation);
+        let dedup_hashset = Self::build_dedup_hashmap(&candidates);
         Self::score_candidates(
-            FeatureExtror::extract_features(
+            FeatureExtractor::extract_features(
                 OccurrencesBuilder::build_occurrences(&sentences, &punctuation, &stop_words),
                 ContextBuilder::build_context(&sentences, window_size),
                 &sentences,
@@ -75,13 +69,14 @@ impl YakeLogic {
         )
     }
 
-    fn build_de_duplicate_hashset<'a>(
+    fn build_dedup_hashmap<'a>(
         candidates: &'a HashMap<String, PreCandidate<'a>>,
-    ) -> HashSet<String> {
-        candidates.iter().fold(HashSet::new(), |mut acc, (_, pc)| {
+    ) -> HashMap<String, f32> {
+        candidates.iter().fold(HashMap::new(), |mut acc, (_, pc)| {
             if pc.lexical_form.len() > 1 {
                 pc.lexical_form.iter().for_each(|w| {
-                    acc.insert(w.to_string());
+                    let entry = acc.entry(w.to_string()).or_insert(0.0);
+                    *entry += 1.0
                 });
             }
 
@@ -92,14 +87,14 @@ impl YakeLogic {
     fn score_candidates<'a>(
         feature_extraction: HashMap<&'a str, f32>,
         candidates: HashMap<String, PreCandidate<'a>>,
-        dedup_hashset: HashSet<String>,
+        dedup_hashset: HashMap<String, f32>,
     ) -> HashMap<String, f32> {
         let mut max = 0.0_f32;
         let values = candidates
             .into_iter()
             .map(|(k, pc)| {
                 let (prod, sum) = pc.lexical_form.iter().fold(
-                    (if dedup_hashset.contains(&k) { 6.0 } else { 1.0 }, 0.0),
+                    (*dedup_hashset.get(&k).unwrap_or(&1.0), 0.0),
                     |acc, w| {
                         let weight = *feature_extraction.get(*w).unwrap_or(&0.0);
 
@@ -108,7 +103,7 @@ impl YakeLogic {
                 );
                 let tf = pc.surface_forms.len() as f32;
                 let sum = if sum == -1.0 { 1.0 - f32::EPSILON } else { sum };
-                let value = 1.0 / (prod / (tf * (1.0 + sum)));
+                let value = prod / (tf * (1.0 + sum));
 
                 if value > max {
                     max = value;
@@ -117,6 +112,9 @@ impl YakeLogic {
                 (k, value)
             })
             .collect::<Vec<(String, f32)>>();
-        values.into_iter().map(|(k, v)| (k, v / max)).collect()
+        values
+            .into_iter()
+            .map(|(k, v)| (k, 1.0 - v / max))
+            .collect()
     }
 }
