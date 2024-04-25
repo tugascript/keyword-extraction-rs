@@ -20,7 +20,6 @@ use std::{
 };
 
 mod candidate_selection;
-mod context_builder;
 mod feature_extraction;
 mod levenshtein;
 mod sentences_builder;
@@ -63,7 +62,7 @@ fn build_ranked_keywords(vec: &mut Vec<String>, word: &str, threshold: f32) -> (
 fn build_ranked_scores(vec: &mut Vec<(String, f32)>, word: &str, score: f32, threshold: f32) -> () {
     if vec
         .iter()
-        .any(|(w, s)| Levenshtein::new(w, word).ratio() >= threshold && *s >= score)
+        .any(|(w, _)| Levenshtein::new(w, word).ratio() >= threshold)
     {
         return;
     }

@@ -19,12 +19,12 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use crate::common::{get_capitalized_regex, get_upper_case_regex};
 
-use super::context_builder::{LeftRightContext, Occurrences};
+use super::candidate_selection::{LeftRightContext, Occurrences};
 
 pub struct FeatureExtractor;
 
 impl<'a> FeatureExtractor {
-    pub fn extract_features(
+    pub fn score_words(
         occurrences: Occurrences<'a>,
         contexts: LeftRightContext<'a>,
         sentences_len: f32,

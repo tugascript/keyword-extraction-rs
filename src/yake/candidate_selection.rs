@@ -18,6 +18,8 @@ use std::{
     collections::{HashMap, HashSet},
 };
 
+use unicode_segmentation::UnicodeSegmentation;
+
 use super::sentences_builder::Sentence;
 
 #[derive(Clone)]
@@ -41,6 +43,12 @@ impl<'a> Candidate<'a> {
 
 type Candidates<'a> = HashMap<String, Candidate<'a>>;
 type DedupMap<'a> = HashMap<&'a str, f32>;
+pub type LeftRightContext<'a> = HashMap<&'a str, (Vec<&'a str>, Vec<&'a str>)>;
+pub type Occurrences<'a> = HashMap<&'a str, Vec<(&'a str, usize)>>;
+
+fn is_punctuation(word: &str, punctuation: &HashSet<&str>) -> bool {
+    word.is_empty() || ((word.graphemes(true).count() == 1) && punctuation.contains(word))
+}
 
 pub struct CandidateSelection;
 
@@ -48,29 +56,39 @@ impl<'a> CandidateSelection {
     pub fn select_candidates(
         sentences: &'a [Sentence],
         ngram: usize,
-        stop_words: &'a HashSet<&'a str>,
-        punctuation: &'a HashSet<&'a str>,
-    ) -> (Candidates<'a>, DedupMap<'a>) {
-        sentences.iter().fold(
-            (Candidates::new(), DedupMap::new()),
-            |(mut candidates, mut dedup_map), sentence| {
+        window_size: usize,
+        stop_words: HashSet<&'a str>,
+        punctuation: HashSet<&'a str>,
+    ) -> (
+        Candidates<'a>,
+        DedupMap<'a>,
+        Occurrences<'a>,
+        LeftRightContext<'a>,
+    ) {
+        sentences.iter().enumerate().fold(
+            (
+                Candidates::new(),
+                DedupMap::new(),
+                Occurrences::new(),
+                LeftRightContext::new(),
+            ),
+            |(mut candidates, mut dedup_map, mut occurrences, mut lr_contexts), (i, sentence)| {
                 let sentence_len = sentence.length;
-
-                (0..sentence_len).for_each(|i| {
-                    (i + 1..=min(i + ngram, sentence_len)).for_each(|j: usize| {
-                        let stems = sentence.stemmed[i..j]
+                (0..sentence_len).for_each(|j| {
+                    (j + 1..=min(j + ngram, sentence_len)).for_each(|k: usize| {
+                        let stems = sentence.stemmed[j..k]
                             .iter()
                             .map(|s| s.as_str())
                             .collect::<Vec<&'a str>>();
                         if stems.iter().any(|w| {
-                            stop_words.contains(w)
-                                || punctuation.contains(w)
+                            is_punctuation(w, &punctuation)
+                                || stop_words.contains(w)
                                 || w.parse::<f32>().is_ok()
                         }) {
                             return;
                         }
 
-                        let words = sentence.words[i..j]
+                        let words = sentence.words[j..k]
                             .iter()
                             .map(|s| s.as_ref())
                             .collect::<Vec<&'a str>>();
@@ -91,7 +109,37 @@ impl<'a> CandidateSelection {
                         entry.add(words);
                     });
                 });
-                (candidates, dedup_map)
+                sentence.words.iter().enumerate().fold(
+                    Vec::<(&str, usize)>::new(),
+                    |mut buffer, (j, w1)| {
+                        let key1 = sentence.stemmed[j].as_str();
+                        let w1_str = w1.as_str();
+
+                        if !(is_punctuation(key1, &punctuation) || stop_words.contains(key1)) {
+                            let entry = occurrences.entry(key1).or_default();
+                            entry.push((w1_str, i));
+                        }
+
+                        buffer.iter().for_each(|(w2, k)| {
+                            let entry_1 =
+                                lr_contexts.entry(key1).or_insert((Vec::new(), Vec::new()));
+                            entry_1.0.push(*w2);
+                            let entry_2 = lr_contexts
+                                .entry(sentence.stemmed[*k].as_str())
+                                .or_insert((Vec::new(), Vec::new()));
+                            entry_2.1.push(w1_str);
+                        });
+
+                        buffer.push((w1_str, j));
+
+                        if buffer.len() > window_size {
+                            buffer.remove(0);
+                        }
+
+                        buffer
+                    },
+                );
+                (candidates, dedup_map, occurrences, lr_contexts)
             },
         )
     }

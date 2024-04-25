@@ -17,7 +17,6 @@ use std::collections::{HashMap, HashSet};
 
 use super::{
     candidate_selection::{Candidate, CandidateSelection},
-    context_builder::ContextBuilder,
     feature_extraction::FeatureExtractor,
     sentences_builder::SentencesBuilder,
 };
@@ -33,22 +32,25 @@ impl YakeLogic {
         window_size: usize,
     ) -> HashMap<String, f32> {
         let sentences = SentencesBuilder::build_sentences(text);
-        let sentences_len = sentences.len() as f32;
-        let (candidates, dedup_hashmap) =
-            CandidateSelection::select_candidates(&sentences, ngram, &stop_words, &punctuation);
-        let (occurrences, lr_contexts) =
-            ContextBuilder::build_context(&sentences, window_size, &punctuation, &stop_words);
+        let (candidates, dedup_hashmap, occurrences, lr_contexts) =
+            CandidateSelection::select_candidates(
+                &sentences,
+                ngram,
+                window_size,
+                stop_words,
+                punctuation,
+            );
         Self::score_candidates(
-            FeatureExtractor::extract_features(occurrences, lr_contexts, sentences_len),
             candidates,
             dedup_hashmap,
+            FeatureExtractor::score_words(occurrences, lr_contexts, sentences.len() as f32),
         )
     }
 
     fn score_candidates<'a>(
-        single_scores: HashMap<&'a str, f32>,
         candidates: HashMap<String, Candidate<'a>>,
         dedup_hashmap: HashMap<&'a str, f32>,
+        word_scores: HashMap<&'a str, f32>,
     ) -> HashMap<String, f32> {
         candidates
             .into_iter()
@@ -56,7 +58,7 @@ impl YakeLogic {
                 let (prod, sum) = pc.lexical_form.iter().fold(
                     (*dedup_hashmap.get(k.as_str()).unwrap_or(&1.0), 0.0),
                     |acc, w| {
-                        let weight = *single_scores.get(*w).unwrap_or(&0.0);
+                        let weight = *word_scores.get(*w).unwrap_or(&0.0);
 
                         (acc.0 * weight, acc.1 + weight)
                     },
