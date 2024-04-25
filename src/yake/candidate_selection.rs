@@ -21,12 +21,12 @@ use std::{
 use super::sentences_builder::Sentence;
 
 #[derive(Clone)]
-pub struct PreCandidate<'a> {
+pub struct Candidate<'a> {
     pub lexical_form: Vec<&'a str>,
     pub surface_forms: Vec<Vec<&'a str>>,
 }
 
-impl<'a> PreCandidate<'a> {
+impl<'a> Candidate<'a> {
     pub fn new(stems: Vec<&'a str>) -> Self {
         Self {
             lexical_form: stems,
@@ -39,20 +39,21 @@ impl<'a> PreCandidate<'a> {
     }
 }
 
-type PreCandidates<'a> = HashMap<String, PreCandidate<'a>>;
+type Candidates<'a> = HashMap<String, Candidate<'a>>;
+type DedupMap<'a> = HashMap<&'a str, f32>;
 
 pub struct CandidateSelection;
 
 impl<'a> CandidateSelection {
     pub fn select_candidates(
-        sentences: &'a [Sentence<'a>],
+        sentences: &'a [Sentence],
         ngram: usize,
         stop_words: &'a HashSet<&'a str>,
         punctuation: &'a HashSet<&'a str>,
-    ) -> PreCandidates<'a> {
-        sentences
-            .iter()
-            .fold(PreCandidates::new(), |mut acc, sentence| {
+    ) -> (Candidates<'a>, DedupMap<'a>) {
+        sentences.iter().fold(
+            (Candidates::new(), DedupMap::new()),
+            |(mut candidates, mut dedup_map), sentence| {
                 let sentence_len = sentence.length;
 
                 (0..sentence_len).for_each(|i| {
@@ -61,7 +62,6 @@ impl<'a> CandidateSelection {
                             .iter()
                             .map(|s| s.as_str())
                             .collect::<Vec<&'a str>>();
-
                         if stems.iter().any(|w| {
                             stop_words.contains(w)
                                 || punctuation.contains(w)
@@ -74,13 +74,25 @@ impl<'a> CandidateSelection {
                             .iter()
                             .map(|s| s.as_ref())
                             .collect::<Vec<&'a str>>();
-                        let entry = acc
-                            .entry(stems.join(" "))
-                            .or_insert(PreCandidate::new(stems));
+                        let key = stems.join(" ");
+                        let entry = match candidates.get_mut(&key) {
+                            Some(entry) => entry,
+                            None => {
+                                if stems.len() > 1 {
+                                    stems.iter().for_each(|w| {
+                                        let entry = dedup_map.entry(*w).or_insert(0.0);
+                                        *entry += 1.0;
+                                    });
+                                }
+
+                                candidates.entry(key).or_insert(Candidate::new(stems))
+                            }
+                        };
                         entry.add(words);
                     });
                 });
-                acc
-            })
+                (candidates, dedup_map)
+            },
+        )
     }
 }

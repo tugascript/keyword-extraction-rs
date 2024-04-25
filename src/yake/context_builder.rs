@@ -13,39 +13,53 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with Rust Keyword Extraction. If not, see <http://www.gnu.org/licenses/>.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+
+use unicode_segmentation::UnicodeSegmentation;
 
 use super::sentences_builder::Sentence;
 
 pub type LeftRightContext<'a> = HashMap<&'a str, (Vec<&'a str>, Vec<&'a str>)>;
+pub type Occurrences<'a> = HashMap<&'a str, Vec<(&'a str, usize)>>;
+
+fn is_punctuation(word: &str, punctuation: &HashSet<&str>) -> bool {
+    word.is_empty() || ((word.graphemes(true).count() == 1) && punctuation.contains(word))
+}
 
 pub struct ContextBuilder;
 
 impl<'a> ContextBuilder {
     pub fn build_context(
-        sentences: &'a [Sentence<'a>],
+        sentences: &'a [Sentence],
         window_size: usize,
-    ) -> LeftRightContext<'a> {
-        sentences
-            .iter()
-            .fold(LeftRightContext::new(), |mut acc, sentence| {
+        punctuation: &'a HashSet<&'a str>,
+        stop_words: &'a HashSet<&'a str>,
+    ) -> (Occurrences<'a>, LeftRightContext<'a>) {
+        sentences.iter().enumerate().fold(
+            (Occurrences::new(), LeftRightContext::new()),
+            |(mut occurences, mut lr_contexts), (i, sentence)| {
                 sentence.words.iter().enumerate().fold(
                     Vec::<(&str, usize)>::new(),
-                    |mut buffer, (i, w1)| {
-                        let w1_str = w1.as_ref();
+                    |mut buffer, (j, w1)| {
+                        let key1 = sentence.stemmed[j].as_str();
+                        let w1_str = w1.as_str();
 
-                        buffer.iter().for_each(|(w2, j)| {
-                            let entry_1 = acc
-                                .entry(sentence.stemmed[i].as_str())
-                                .or_insert((Vec::new(), Vec::new()));
+                        if !(is_punctuation(key1, punctuation) || stop_words.contains(key1)) {
+                            let entry = occurences.entry(key1).or_default();
+                            entry.push((w1_str, i));
+                        }
+
+                        buffer.iter().for_each(|(w2, k)| {
+                            let entry_1 =
+                                lr_contexts.entry(key1).or_insert((Vec::new(), Vec::new()));
                             entry_1.0.push(*w2);
-                            let entry_2 = acc
-                                .entry(sentence.stemmed[*j].as_str())
+                            let entry_2 = lr_contexts
+                                .entry(sentence.stemmed[*k].as_str())
                                 .or_insert((Vec::new(), Vec::new()));
                             entry_2.1.push(w1_str);
                         });
 
-                        buffer.push((w1_str, i));
+                        buffer.push((w1_str, j));
 
                         if buffer.len() > window_size {
                             buffer.remove(0);
@@ -54,7 +68,8 @@ impl<'a> ContextBuilder {
                         buffer
                     },
                 );
-                acc
-            })
+                (occurences, lr_contexts)
+            },
+        )
     }
 }

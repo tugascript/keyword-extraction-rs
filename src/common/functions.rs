@@ -142,3 +142,7 @@ pub fn get_capitalized_regex() -> Option<Regex> {
         .build()
         .ok()
 }
+
+pub fn get_space_regex() -> Option<Regex> {
+    Regex::new(r"[\n\t\r]").ok()
+}

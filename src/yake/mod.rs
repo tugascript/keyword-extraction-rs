@@ -23,7 +23,6 @@ mod candidate_selection;
 mod context_builder;
 mod feature_extraction;
 mod levenshtein;
-mod occurrences_builder;
 mod sentences_builder;
 mod yake_logic;
 pub mod yake_params;

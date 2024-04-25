@@ -13,37 +13,16 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with Rust Keyword Extraction. If not, see <http://www.gnu.org/licenses/>.
 
-use std::{
-    borrow::Cow,
-    collections::{HashMap, HashSet},
-};
-
-use regex::Regex;
+use std::collections::{HashMap, HashSet};
 
 use super::{
-    candidate_selection::{CandidateSelection, PreCandidate},
+    candidate_selection::{Candidate, CandidateSelection},
     context_builder::ContextBuilder,
     feature_extraction::FeatureExtractor,
-    occurrences_builder::OccurrencesBuilder,
     sentences_builder::SentencesBuilder,
 };
 
 pub struct YakeLogic;
-
-fn get_space_regex() -> Option<Regex> {
-    Regex::new(r"[\n\t\r]").ok()
-}
-
-fn process_text<'a>(text: &'a str) -> Cow<'a, str> {
-    let space_regex = get_space_regex();
-    let trimmed_text = text.trim();
-
-    if let Some(regex) = space_regex {
-        regex.replace_all(trimmed_text, " ")
-    } else {
-        trimmed_text.into()
-    }
-}
 
 impl YakeLogic {
     pub fn build_yake(
@@ -53,50 +32,31 @@ impl YakeLogic {
         ngram: usize,
         window_size: usize,
     ) -> HashMap<String, f32> {
-        let processed_text = process_text(text);
-        let sentences = SentencesBuilder::build_sentences(processed_text.as_ref());
-        let candidates =
+        let sentences = SentencesBuilder::build_sentences(text);
+        let sentences_len = sentences.len() as f32;
+        let (candidates, dedup_hashmap) =
             CandidateSelection::select_candidates(&sentences, ngram, &stop_words, &punctuation);
-        let dedup_hashset = Self::build_dedup_hashmap(&candidates);
+        let (occurrences, lr_contexts) =
+            ContextBuilder::build_context(&sentences, window_size, &punctuation, &stop_words);
         Self::score_candidates(
-            FeatureExtractor::extract_features(
-                OccurrencesBuilder::build_occurrences(&sentences, &punctuation, &stop_words),
-                ContextBuilder::build_context(&sentences, window_size),
-                &sentences,
-            ),
+            FeatureExtractor::extract_features(occurrences, lr_contexts, sentences_len),
             candidates,
-            dedup_hashset,
+            dedup_hashmap,
         )
     }
 
-    fn build_dedup_hashmap<'a>(
-        candidates: &'a HashMap<String, PreCandidate<'a>>,
-    ) -> HashMap<String, f32> {
-        candidates.iter().fold(HashMap::new(), |mut acc, (_, pc)| {
-            if pc.lexical_form.len() > 1 {
-                pc.lexical_form.iter().for_each(|w| {
-                    let entry = acc.entry(w.to_string()).or_insert(0.0);
-                    *entry += 1.0
-                });
-            }
-
-            acc
-        })
-    }
-
     fn score_candidates<'a>(
-        feature_extraction: HashMap<&'a str, f32>,
-        candidates: HashMap<String, PreCandidate<'a>>,
-        dedup_hashset: HashMap<String, f32>,
+        single_scores: HashMap<&'a str, f32>,
+        candidates: HashMap<String, Candidate<'a>>,
+        dedup_hashmap: HashMap<&'a str, f32>,
     ) -> HashMap<String, f32> {
-        let mut max = 0.0_f32;
-        let values = candidates
+        candidates
             .into_iter()
             .map(|(k, pc)| {
                 let (prod, sum) = pc.lexical_form.iter().fold(
-                    (*dedup_hashset.get(&k).unwrap_or(&1.0), 0.0),
+                    (*dedup_hashmap.get(k.as_str()).unwrap_or(&1.0), 0.0),
                     |acc, w| {
-                        let weight = *feature_extraction.get(*w).unwrap_or(&0.0);
+                        let weight = *single_scores.get(*w).unwrap_or(&0.0);
 
                         (acc.0 * weight, acc.1 + weight)
                     },
@@ -104,17 +64,8 @@ impl YakeLogic {
                 let tf = pc.surface_forms.len() as f32;
                 let sum = if sum == -1.0 { 1.0 - f32::EPSILON } else { sum };
                 let value = prod / (tf * (1.0 + sum));
-
-                if value > max {
-                    max = value;
-                }
-
-                (k, value)
+                (k, 1.0 - value)
             })
-            .collect::<Vec<(String, f32)>>();
-        values
-            .into_iter()
-            .map(|(k, v)| (k, 1.0 - v / max))
             .collect()
     }
 }
