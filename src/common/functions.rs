@@ -21,7 +21,7 @@ use std::{
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
-use regex::{Regex, RegexBuilder};
+use regex::Regex;
 use unicode_segmentation::UnicodeSegmentation;
 
 #[cfg(not(feature = "parallel"))]
@@ -132,13 +132,6 @@ pub fn process_word(
     Some(word)
 }
 
-pub fn get_upper_case_regex() -> Option<Regex> {
-    RegexBuilder::new(r"(^\p{Lu}+$)").unicode(true).build().ok()
-}
-
-pub fn get_capitalized_regex() -> Option<Regex> {
-    RegexBuilder::new(r"(^\p{Lu}[\p{Ll}\p{N}]*+(?:\p{Lu}[\p{Ll}\p{N}]*+)*$)")
-        .unicode(true)
-        .build()
-        .ok()
+pub fn get_space_regex() -> Option<Regex> {
+    Regex::new(r"[\n\t\r]").ok()
 }

@@ -13,136 +13,63 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with Rust Keyword Extraction. If not, see <http://www.gnu.org/licenses/>.
 
-use std::{
-    borrow::Cow,
-    collections::{HashMap, HashSet},
-};
-
-use regex::Regex;
+use std::collections::{HashMap, HashSet};
 
 use super::{
-    candidate_selection::Candidates,
-    context_builder::Context,
-    feature_extraction::{FeatureExtraction, Features},
-    levenshtein::Levenshtein,
-    yake_tokenizer::YakeTokenizer,
+    candidate_selection_and_context_builder::{Candidate, CandidateSelectionAndContextBuilder},
+    feature_extraction::FeatureExtractor,
+    sentences_builder::SentencesBuilder,
+    text_pre_processor::TextPreProcessor,
 };
 
 pub struct YakeLogic;
-
-fn get_space_regex() -> Option<Regex> {
-    Regex::new(r"[\n\t\r]").ok()
-}
-
-fn process_text<'a>(text: &'a str) -> Cow<'a, str> {
-    let space_regex = get_space_regex();
-    let trimmed_text = text.trim();
-
-    if let Some(regex) = space_regex {
-        regex.replace_all(trimmed_text, " ")
-    } else {
-        trimmed_text.into()
-    }
-}
 
 impl YakeLogic {
     pub fn build_yake(
         text: &str,
         stop_words: HashSet<&str>,
         punctuation: HashSet<&str>,
-        threshold: f32,
         ngram: usize,
         window_size: usize,
     ) -> HashMap<String, f32> {
-        let processed_text = process_text(text);
-        let tokenizer = YakeTokenizer::new(processed_text.as_ref());
-        let sentences = tokenizer.get_sentences();
-        let context = Context::new(sentences, &punctuation, window_size);
-        let feature_extraction = FeatureExtraction::new(&context, sentences, &stop_words);
-        let candidates = Candidates::new(sentences, ngram, &stop_words, &punctuation);
-        Self::filter_candidates(
-            &candidates,
-            Self::score_candidates(
-                &feature_extraction,
-                &candidates,
-                Self::build_de_duplicate_hashset(&candidates),
-            ),
-            threshold,
+        let text = TextPreProcessor::process_text(text);
+        let sentences = SentencesBuilder::build_sentences(&text);
+        let (candidates, dedup_hashmap, occurrences, lr_contexts) =
+            CandidateSelectionAndContextBuilder::select_candidates_and_build_context(
+                &sentences,
+                ngram,
+                window_size,
+                stop_words,
+                punctuation,
+            );
+        Self::score_candidates(
+            candidates,
+            dedup_hashmap,
+            FeatureExtractor::score_words(occurrences, lr_contexts, sentences.len() as f32),
         )
     }
 
-    // Filter Pre Candidates into Candidates
-    // Note: this reverses the order, but order is not important for the final calculation
-    fn filter_candidates(
-        candidates: &Candidates,
-        score: HashMap<&str, f32>,
-        threshold: f32,
+    fn score_candidates<'a>(
+        candidates: HashMap<String, Candidate<'a>>,
+        dedup_hashmap: HashMap<&'a str, f32>,
+        word_scores: HashMap<&'a str, f32>,
     ) -> HashMap<String, f32> {
         candidates
-            .candidates()
-            .enumerate()
-            .filter_map(|(i, (k1, _))| {
-                for (k2, _) in candidates.candidates().skip(i + 1) {
-                    let lev = Levenshtein::new(k1, k2);
-                    if lev.ratio() >= threshold {
-                        return None;
-                    }
-                }
-                Some((k1.to_string(), *score.get(k1.as_str()).unwrap_or(&0.0)))
-            })
-            .collect()
-    }
-
-    fn build_de_duplicate_hashset<'a>(candidates: &'a Candidates) -> HashSet<&'a str> {
-        candidates
-            .candidates()
-            .fold(HashSet::new(), |mut acc, (_, pc)| {
-                if pc.get_lexical_form().len() > 1 {
-                    pc.get_lexical_form().iter().for_each(|w| {
-                        acc.insert(*w);
-                    });
-                }
-
-                acc
-            })
-    }
-
-    /**
-     * Formula
-     * S(kw) = Π(H) / TF(kw)(1 + Σ(H))
-     **/
-    fn score_candidates<'a>(
-        feature_extraction: &'a FeatureExtraction,
-        candidates: &'a Candidates,
-        dedup_hashset: HashSet<&'a str>,
-    ) -> HashMap<&'a str, f32> {
-        candidates
-            .candidates()
-            .fold(HashMap::new(), |mut acc, (k, pc)| {
-                let key = k.as_str();
-                let (prod, sum) = pc.get_lexical_form().iter().fold(
-                    (
-                        if dedup_hashset.contains(&key) {
-                            6.0
-                        } else {
-                            1.0
-                        },
-                        0.0,
-                    ),
+            .into_iter()
+            .map(|(k, pc)| {
+                let (prod, sum) = pc.lexical_form.iter().fold(
+                    (*dedup_hashmap.get(k.as_str()).unwrap_or(&1.0), 0.0),
                     |acc, w| {
-                        let weight = feature_extraction
-                            .get_word_features(w)
-                            .unwrap_or(&Features::default())
-                            .get_weight();
+                        let weight = *word_scores.get(*w).unwrap_or(&0.0);
 
                         (acc.0 * weight, acc.1 + weight)
                     },
                 );
-                let tf = pc.get_surface_forms().len() as f32;
+                let tf = pc.surface_forms.len() as f32;
                 let sum = if sum == -1.0 { 1.0 - f32::EPSILON } else { sum };
-
-                acc.insert(key, prod / (tf * (1.0 + sum)));
-                acc
+                let value = prod / (tf * (1.0 + sum));
+                (k, 1.0 / value)
             })
+            .collect::<HashMap<String, f32>>()
     }
 }

@@ -21,9 +21,9 @@ use unicode_segmentation::UnicodeSegmentation;
 use crate::common::get_special_char_regex;
 
 pub struct Sentence<'a> {
-    words: Vec<Cow<'a, str>>,
-    stemmed: Vec<String>,
-    length: usize,
+    pub words: Vec<Cow<'a, str>>,
+    pub stemmed: Vec<String>,
+    pub length: usize,
 }
 
 impl<'a> Sentence<'a> {
@@ -33,14 +33,14 @@ impl<'a> Sentence<'a> {
             .filter_map(|w| {
                 let trimmed = w.trim();
 
-                if trimmed.is_empty() || trimmed == " " {
+                if trimmed.is_empty() {
                     return None;
                 }
 
                 if let Some(regex) = special_char_regex {
                     let value = regex.replace_all(trimmed, "");
 
-                    if value.is_empty() || value == " " {
+                    if value.is_empty() {
                         return None;
                     }
 
@@ -59,34 +59,15 @@ impl<'a> Sentence<'a> {
             words,
         }
     }
-
-    pub fn get_words(&self) -> &[Cow<'a, str>] {
-        &self.words
-    }
-
-    pub fn get_stemmed(&self) -> &[String] {
-        &self.stemmed
-    }
-
-    pub fn get_length(&self) -> usize {
-        self.length
-    }
 }
 
-pub struct YakeTokenizer<'a>(Vec<Sentence<'a>>);
+pub struct SentencesBuilder;
 
-impl<'a> YakeTokenizer<'a> {
-    pub fn new(pre_processed_text: &'a str) -> Self {
+impl<'a> SentencesBuilder {
+    pub fn build_sentences(text: &'a str) -> Vec<Sentence<'a>> {
         let special_char_regex = get_special_char_regex();
-        Self(
-            pre_processed_text
-                .unicode_sentences()
-                .map(|s| Sentence::new(s.trim(), &special_char_regex))
-                .collect::<Vec<Sentence<'a>>>(),
-        )
-    }
-
-    pub fn get_sentences(&self) -> &[Sentence<'a>] {
-        &self.0
+        text.unicode_sentences()
+            .map(|s| Sentence::new(s.trim(), &special_char_regex))
+            .collect()
     }
 }

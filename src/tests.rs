@@ -562,7 +562,6 @@ fn test_yake() {
         "junior rust",
         "rust programming language",
     ];
-    println!("{:?}", yake.get_ranked_keywords(50));
     assert!(is_percent_in_hashset(
         &yake.get_ranked_keywords(10),
         &yake_result
