@@ -31,7 +31,7 @@ impl YakeLogic {
         punctuation: HashSet<&str>,
         ngram: usize,
         window_size: usize,
-    ) -> HashMap<String, f32> {
+    ) -> (HashMap<String, f32>, HashMap<String, f32>) {
         let text = TextPreProcessor::process_text(text);
         let sentences = SentencesBuilder::build_sentences(&text);
         let (candidates, dedup_hashmap, occurrences, lr_contexts) =
@@ -42,17 +42,18 @@ impl YakeLogic {
                 stop_words,
                 punctuation,
             );
-        Self::score_candidates(
-            candidates,
-            dedup_hashmap,
-            FeatureExtractor::score_words(occurrences, lr_contexts, sentences.len() as f32),
+        let word_scores =
+            FeatureExtractor::score_words(occurrences, lr_contexts, sentences.len() as f32);
+        (
+            Self::score_candidates(candidates, dedup_hashmap, &word_scores),
+            Self::score_terms(word_scores),
         )
     }
 
     fn score_candidates<'a>(
         candidates: HashMap<String, Candidate<'a>>,
         dedup_hashmap: HashMap<&'a str, f32>,
-        word_scores: HashMap<&'a str, f32>,
+        word_scores: &HashMap<&'a str, f32>,
     ) -> HashMap<String, f32> {
         candidates
             .into_iter()
@@ -70,6 +71,13 @@ impl YakeLogic {
                 let value = prod / (tf * (1.0 + sum));
                 (k, 1.0 / value)
             })
+            .collect::<HashMap<String, f32>>()
+    }
+
+    fn score_terms<'a>(word_scores: HashMap<&'a str, f32>) -> HashMap<String, f32> {
+        word_scores
+            .into_iter()
+            .map(|(k, v)| (k.to_string(), 1.0 / v))
             .collect::<HashMap<String, f32>>()
     }
 }
