@@ -19,6 +19,7 @@ use super::{
     candidate_selection_and_context_builder::{Candidate, CandidateSelectionAndContextBuilder},
     feature_extraction::FeatureExtractor,
     sentences_builder::SentencesBuilder,
+    text_pre_processor::TextPreProcessor,
 };
 
 pub struct YakeLogic;
@@ -31,7 +32,8 @@ impl YakeLogic {
         ngram: usize,
         window_size: usize,
     ) -> HashMap<String, f32> {
-        let sentences = SentencesBuilder::build_sentences(text);
+        let text = TextPreProcessor::process_text(text);
+        let sentences = SentencesBuilder::build_sentences(&text);
         let (candidates, dedup_hashmap, occurrences, lr_contexts) =
             CandidateSelectionAndContextBuilder::select_candidates_and_build_context(
                 &sentences,
@@ -66,8 +68,8 @@ impl YakeLogic {
                 let tf = pc.surface_forms.len() as f32;
                 let sum = if sum == -1.0 { 1.0 - f32::EPSILON } else { sum };
                 let value = prod / (tf * (1.0 + sum));
-                (k, 1.0 - value)
+                (k, 1.0 / value)
             })
-            .collect()
+            .collect::<HashMap<String, f32>>()
     }
 }

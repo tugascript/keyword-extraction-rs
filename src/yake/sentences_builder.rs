@@ -13,30 +13,21 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with Rust Keyword Extraction. If not, see <http://www.gnu.org/licenses/>.
 
+use std::borrow::Cow;
+
 use regex::Regex;
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::common::{get_space_regex, get_special_char_regex};
+use crate::common::get_special_char_regex;
 
-fn process_text(text: &str) -> String {
-    let space_regex = get_space_regex();
-    let trimmed_text = text.trim();
-
-    if let Some(regex) = space_regex {
-        regex.replace_all(trimmed_text, " ").to_string()
-    } else {
-        trimmed_text.to_string()
-    }
-}
-
-pub struct Sentence {
-    pub words: Vec<String>,
+pub struct Sentence<'a> {
+    pub words: Vec<Cow<'a, str>>,
     pub stemmed: Vec<String>,
     pub length: usize,
 }
 
-impl Sentence {
-    pub fn new(s: &str, special_char_regex: &Option<Regex>) -> Self {
+impl<'a> Sentence<'a> {
+    pub fn new(s: &'a str, special_char_regex: &Option<Regex>) -> Self {
         let words = s
             .split_word_bounds()
             .filter_map(|w| {
@@ -53,12 +44,12 @@ impl Sentence {
                         return None;
                     }
 
-                    Some(value.to_string())
+                    Some(value)
                 } else {
-                    Some(trimmed.to_string())
+                    Some(trimmed.into())
                 }
             })
-            .collect::<Vec<String>>();
+            .collect::<Vec<Cow<'a, str>>>();
         Self {
             stemmed: words
                 .iter()
@@ -72,12 +63,10 @@ impl Sentence {
 
 pub struct SentencesBuilder;
 
-impl SentencesBuilder {
-    pub fn build_sentences(text: &str) -> Vec<Sentence> {
+impl<'a> SentencesBuilder {
+    pub fn build_sentences(text: &'a str) -> Vec<Sentence<'a>> {
         let special_char_regex = get_special_char_regex();
-        let pre_processed_text = process_text(text);
-        pre_processed_text
-            .unicode_sentences()
+        text.unicode_sentences()
             .map(|s| Sentence::new(s.trim(), &special_char_regex))
             .collect()
     }

@@ -23,6 +23,7 @@ mod candidate_selection_and_context_builder;
 mod feature_extraction;
 mod levenshtein;
 mod sentences_builder;
+mod text_pre_processor;
 mod yake_logic;
 pub mod yake_params;
 pub use yake_params::YakeParams;

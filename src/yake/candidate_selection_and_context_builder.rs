@@ -118,7 +118,7 @@ impl<'a> CandidateSelectionAndContextBuilder {
                     Vec::<(&str, usize)>::new(),
                     |mut buffer, (j, w1)| {
                         let key1 = sentence.stemmed[j].as_str();
-                        let w1_str = w1.as_str();
+                        let w1_str = w1.as_ref();
 
                         if !(is_punctuation(key1, &punctuation) || stop_words.contains(key1)) {
                             let entry = occurrences.entry(key1).or_default();
