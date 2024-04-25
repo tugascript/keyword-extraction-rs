@@ -22,7 +22,6 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use super::sentences_builder::Sentence;
 
-#[derive(Clone)]
 pub struct Candidate<'a> {
     pub lexical_form: Vec<&'a str>,
     pub surface_forms: Vec<Vec<&'a str>>,

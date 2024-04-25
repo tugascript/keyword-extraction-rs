@@ -91,6 +91,12 @@ fn is_percent_in_hashset(vector: &[String], hashset: &HashSet<String>, percent: 
     percentage >= percent
 }
 
+fn contains_all(strings: &[String], substrings: &[&str]) -> bool {
+    substrings
+        .iter()
+        .all(|substr| strings.contains(&substr.to_string()))
+}
+
 #[test]
 fn test_tokenize() {
     let tokenizer = tokenizer::Tokenizer::new(TEXT, &get_stop_words(), None);
@@ -562,12 +568,25 @@ fn test_yake() {
         "junior rust",
         "rust programming language",
     ];
+
+    let ranked_keywords = yake.get_ranked_keywords(10);
+    let expected_terms = ranked_keywords
+        .iter()
+        .flat_map(|s| s.split_whitespace())
+        .collect::<Vec<&str>>();
+    let ranked_terms = yake.get_ranked_terms(
+        ranked_keywords
+            .iter()
+            .fold(0, |acc, s| acc + s.split_whitespace().count()),
+    );
+
     assert!(is_percent_in_hashset(
-        &yake.get_ranked_keywords(10),
+        &ranked_keywords,
         &yake_result
             .iter()
             .map(|x| x.to_string())
             .collect::<HashSet<String>>(),
         90.0
     ));
+    assert!(contains_all(&ranked_terms, &expected_terms));
 }

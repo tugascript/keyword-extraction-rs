@@ -13,11 +13,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with Rust Keyword Extraction. If not, see <http://www.gnu.org/licenses/>.
 
-use std::{
-    cmp::{min, Ordering},
-    collections::HashMap,
-    hash::RandomState,
-};
+use std::{cmp::min, collections::HashMap};
 
 mod candidate_selection_and_context_builder;
 mod feature_extraction;
@@ -28,27 +24,10 @@ mod yake_logic;
 pub mod yake_params;
 pub use yake_params::YakeParams;
 
-use crate::common::PUNCTUATION;
+use crate::common::{get_ranked_scores, get_ranked_strings, sort_ranked_map, PUNCTUATION};
 
 use levenshtein::Levenshtein;
 use yake_logic::YakeLogic;
-
-fn basic_sort<'a>(map: &'a HashMap<String, f32, RandomState>) -> Vec<(String, f32)> {
-    let mut map_values = map
-        .iter()
-        .map(|(k, v)| (k.to_owned(), *v))
-        .collect::<Vec<(String, f32)>>();
-    map_values.sort_by(|a, b| {
-        let order = b.1.partial_cmp(&a.1).unwrap_or(Ordering::Equal);
-
-        if order == Ordering::Equal {
-            return a.0.cmp(&b.0);
-        }
-
-        order
-    });
-    map_values
-}
 
 fn build_ranked_keywords(vec: &mut Vec<String>, word: &str, threshold: f32) -> () {
     if vec
@@ -71,16 +50,17 @@ fn build_ranked_scores(vec: &mut Vec<(String, f32)>, word: &str, score: f32, thr
 }
 
 pub struct Yake {
-    scores: HashMap<String, f32>,
-    sorted_scores: Vec<(String, f32)>,
+    keyword_rank: HashMap<String, f32>,
+    term_rank: HashMap<String, f32>,
     size: usize,
     threshold: f32,
 }
 
 impl Yake {
+    /// Create a new YAKE instance.
     pub fn new(params: YakeParams) -> Self {
         let (text, stop_words, puctuation, threshold, ngram, window_size) = params.get_params();
-        let scores = YakeLogic::build_yake(
+        let (keyword_rank, term_rank) = YakeLogic::build_yake(
             text,
             stop_words.iter().map(|s| s.as_str()).collect(),
             match puctuation {
@@ -91,48 +71,76 @@ impl Yake {
             window_size,
         );
         Self {
-            size: scores.len(),
-            sorted_scores: basic_sort(&scores),
-            scores,
+            size: keyword_rank.len(),
+            keyword_rank,
+            term_rank,
             threshold,
         }
     }
 
-    pub fn get_score(&self, keyword: &str) -> f32 {
-        *self.scores.get(keyword).unwrap_or(&0.0)
+    /// Gets the score of a (n-gram terms) keyword.
+    pub fn get_keyword_score(&self, keyword: &str) -> f32 {
+        *self.keyword_rank.get(keyword).unwrap_or(&0.0)
     }
 
+    /// Gets the score of a single term.
+    pub fn get_word_score(&self, word: &str) -> f32 {
+        *self.term_rank.get(word).unwrap_or(&0.0)
+    }
+
+    /// Get the top n (n-gram terms) keywords with the highest score.
     pub fn get_ranked_keywords(&self, n: usize) -> Vec<String> {
         let capacity = min(self.size, n);
         let mut vec = Vec::with_capacity(capacity);
 
-        for (word, _) in &self.sorted_scores {
-            if vec.len() == n {
-                break;
-            }
+        sort_ranked_map(&self.keyword_rank)
+            .into_iter()
+            .for_each(|(word, _)| {
+                if vec.len() == capacity {
+                    return;
+                }
 
-            build_ranked_keywords(&mut vec, word, self.threshold);
-        }
+                build_ranked_keywords(&mut vec, word, self.threshold);
+            });
 
         vec
     }
 
+    /// Gets the top n (n-gram terms) keywords with the highest score and their scores.
     pub fn get_ranked_keyword_scores(&self, n: usize) -> Vec<(String, f32)> {
         let capacity = min(self.size, n);
         let mut vec = Vec::with_capacity(capacity);
 
-        for (word, score) in &self.sorted_scores {
-            if vec.len() == capacity {
-                break;
-            }
+        sort_ranked_map(&self.keyword_rank)
+            .into_iter()
+            .for_each(|(word, score)| {
+                if vec.len() == capacity {
+                    return;
+                }
 
-            build_ranked_scores(&mut vec, word, *score, self.threshold);
-        }
+                build_ranked_scores(&mut vec, word, *score, self.threshold);
+            });
 
         vec
     }
 
+    /// Gets the top n terms with the highest score.
+    pub fn get_ranked_terms(&self, n: usize) -> Vec<String> {
+        get_ranked_strings(&self.term_rank, n)
+    }
+
+    /// Gets the top n terms with the highest score and their scores.
+    pub fn get_ranked_term_scores(&self, n: usize) -> Vec<(String, f32)> {
+        get_ranked_scores(&self.term_rank, n)
+    }
+
+    /// Gets the (n-gram terms) keyword scores map
     pub fn get_keyword_scores_map(&self) -> &HashMap<String, f32> {
-        &self.scores
+        &self.keyword_rank
+    }
+
+    /// Gets the term scores map
+    pub fn get_term_scores_map(&self) -> &HashMap<String, f32> {
+        &self.term_rank
     }
 }
