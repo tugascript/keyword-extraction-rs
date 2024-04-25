@@ -17,7 +17,7 @@ use std::collections::{HashMap, HashSet};
 
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::candidate_selection::{LeftRightContext, Occurrences};
+use super::candidate_selection_and_context_builder::{LeftRightContext, Occurrences};
 
 pub struct FeatureExtractor;
 

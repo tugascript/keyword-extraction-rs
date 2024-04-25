@@ -50,18 +50,20 @@ fn is_punctuation(word: &str, punctuation: &HashSet<&str>) -> bool {
     word.is_empty() || ((word.graphemes(true).count() == 1) && punctuation.contains(word))
 }
 
-pub struct CandidateSelection;
+pub struct CandidateSelectionAndContextBuilder;
 
-impl<'a> CandidateSelection {
-    pub fn select_candidates(
+impl<'a> CandidateSelectionAndContextBuilder {
+    pub fn select_candidates_and_build_context(
         sentences: &'a [Sentence],
         ngram: usize,
         window_size: usize,
         stop_words: HashSet<&'a str>,
         punctuation: HashSet<&'a str>,
     ) -> (
+        // Candidate Selection
         Candidates<'a>,
         DedupMap<'a>,
+        // Context Builder
         Occurrences<'a>,
         LeftRightContext<'a>,
     ) {
@@ -73,6 +75,7 @@ impl<'a> CandidateSelection {
                 LeftRightContext::new(),
             ),
             |(mut candidates, mut dedup_map, mut occurrences, mut lr_contexts), (i, sentence)| {
+                // Candidate Selection
                 let sentence_len = sentence.length;
                 (0..sentence_len).for_each(|j| {
                     (j + 1..=min(j + ngram, sentence_len)).for_each(|k: usize| {
@@ -109,6 +112,8 @@ impl<'a> CandidateSelection {
                         entry.add(words);
                     });
                 });
+
+                // Context Builder
                 sentence.words.iter().enumerate().fold(
                     Vec::<(&str, usize)>::new(),
                     |mut buffer, (j, w1)| {

@@ -16,7 +16,7 @@
 use std::collections::{HashMap, HashSet};
 
 use super::{
-    candidate_selection::{Candidate, CandidateSelection},
+    candidate_selection_and_context_builder::{Candidate, CandidateSelectionAndContextBuilder},
     feature_extraction::FeatureExtractor,
     sentences_builder::SentencesBuilder,
 };
@@ -33,7 +33,7 @@ impl YakeLogic {
     ) -> HashMap<String, f32> {
         let sentences = SentencesBuilder::build_sentences(text);
         let (candidates, dedup_hashmap, occurrences, lr_contexts) =
-            CandidateSelection::select_candidates(
+            CandidateSelectionAndContextBuilder::select_candidates_and_build_context(
                 &sentences,
                 ngram,
                 window_size,

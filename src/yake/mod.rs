@@ -19,7 +19,7 @@ use std::{
     hash::RandomState,
 };
 
-mod candidate_selection;
+mod candidate_selection_and_context_builder;
 mod feature_extraction;
 mod levenshtein;
 mod sentences_builder;
