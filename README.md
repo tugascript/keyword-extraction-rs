@@ -30,7 +30,7 @@ Add the library to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-keyword_extraction = "1.4.0"
+keyword_extraction = "1.4.1"
 ```
 
 Or use cargo add:
@@ -74,7 +74,6 @@ fn main() {
     let punctuation: Vec<String> =[
         ".", ",", ":", ";", "!", "?", "(", ")", "[", "]", "{", "}", "\"", "'",
     ].iter().map(|s| s.to_string()).collect();
-    ]
     // ...
 }
 ```
@@ -91,7 +90,7 @@ Create a `TfIdfParams` enum which can be one of the following:
 use keyword_extraction::tf_idf::{TfIdf, TfIdfParams};
 
 fn main() {
-    // ... stop_words
+    // ... stop_words & punctuation
     let documents: Vec<String> = vec![
         "This is a test document.".to_string(),
         "This is another test document.".to_string(),
@@ -182,7 +181,7 @@ fn main() {
 
     let yake = Yake::new(YakeParams::WithDefaults(text, &stop_words));
     let ranked_keywords: Vec<String> = yake.get_ranked_keywords(10);
-    let ranked_keywords_scores: Vec<(String, f32)> = yake.get_ranked_keyword_scoress(10);
+    let ranked_keywords_scores: Vec<(String, f32)> = yake.get_ranked_keyword_scores(10);
     // ...
 }
 ```
