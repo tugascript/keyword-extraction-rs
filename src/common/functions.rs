@@ -132,6 +132,7 @@ pub fn process_word(
     Some(word)
 }
 
+#[cfg(feature = "yake")]
 pub fn get_space_regex() -> Option<Regex> {
     Regex::new(r"[\n\t\r]").ok()
 }

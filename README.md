@@ -2,13 +2,14 @@
 
 ## Introduction
 
-This is a simple NLP library with a list of algorithms related to keyword extraction:
+This is a simple NLP library with a list of unsupervised keyword extraction algorithms:
 
 - Tokenizer for tokenizing text;
 - TF-IDF for calculating the importance of a word in one or more documents;
 - Co-occurrence for calculating relationships between words within a specific window size;
 - RAKE for extracting key phrases from a document;
 - TextRank for extracting keywords and key phrases from a document;
+- YAKE for extracting keywords with a n-gram size (defaults to 3) from a document.
 
 ## Algorithms
 
@@ -29,7 +30,7 @@ Add the library to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-keyword_extraction = "1.3.1"
+keyword_extraction = "1.4.0"
 ```
 
 Or use cargo add:
@@ -45,11 +46,12 @@ It is possible to enable or disable features:
 - `"tf_idf"`: TF-IDF algorithm;
 - `"rake"`: RAKE algorithm;
 - `"text_rank"`: TextRank algorithm;
+- `"yake"`: YAKE algorithm;
 - `"all"`: algorimths and helpers;
 - `"parallel"`: parallelization of the algorithms with Rayon;
 - `"co_occurrence"`: Co-occurrence algorithm;
 
-Default features: `["tf_idf", "rake", "text_rank"]`. By default all algorithms apart from `"co_occurrence"` are enabled.
+Default features: `["tf_idf", "rake", "text_rank"]`. By default all algorithms apart from `"co_occurrence"` and `"yake"` are enabled.
 
 <small>NOTE: `"parallel"` feature is only recommended for large documents, it exchanges memory for computation resourses.</small>
 
@@ -89,7 +91,7 @@ Create a `TfIdfParams` enum which can be one of the following:
 use keyword_extraction::tf_idf::{TfIdf, TfIdfParams};
 
 fn main() {
-    // ... stop_words & punctuation
+    // ... stop_words
     let documents: Vec<String> = vec![
         "This is a test document.".to_string(),
         "This is another test document.".to_string(),
@@ -118,7 +120,7 @@ Create a `RakeParams` enum which can be one of the following:
 use keyword_extraction::rake::{Rake, RakeParams};
 
 fn main() {
-    // ... stop_words & punctuation
+    // ... stop_words
     let text = r#"
         This is a test document.
         This is another test document.
@@ -145,7 +147,7 @@ Create a `TextRankParams` enum which can be one of the following:
 use keyword_extraction::text_rank::{TextRank, TextRankParams};
 
 fn main() {
-    // ... stop_words & punctuation
+    // ... stop_words
     let text = r#"
         This is a test document.
         This is another test document.
@@ -155,6 +157,33 @@ fn main() {
     let text_rank = TextRank::new(TextRankParams::WithDefaults(text, &stop_words));
     let ranked_keywords: Vec<String> = text_rank.get_ranked_words(10);
     let ranked_keywords_scores: Vec<(String, f32)> = text_rank.get_ranked_word_scores(10);
+}
+```
+
+#### YAKE
+
+**NOTE:** YAKE is a more complex algorithm and doesn't support the `parallel` feature yet.
+
+Create a `YakeParams` enum which can be one of the following:
+
+1. With defaults: `TextRankParams::WithDefaults`;
+2. All: `TextRankParams::All`;
+
+```rust
+use keyword_extraction::yake::{Yake, YakeParams};
+
+fn main() {
+    // ... stop_words
+    let text = r#"
+        This is a test document.
+        This is another test document.
+        This is a third test document.
+    "#;
+
+    let yake = Yake::new(YakeParams::WithDefaults(text, &stop_words));
+    let ranked_keywords: Vec<String> = yake.get_ranked_keywords(10);
+    let ranked_keywords_scores: Vec<(String, f32)> = yake.get_ranked_keyword_scoress(10);
+    // ...
 }
 ```
 
