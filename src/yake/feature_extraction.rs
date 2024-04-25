@@ -17,8 +17,6 @@ use std::collections::{HashMap, HashSet};
 
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::common::{get_capitalized_regex, get_upper_case_regex};
-
 use super::candidate_selection::{LeftRightContext, Occurrences};
 
 pub struct FeatureExtractor;
@@ -50,37 +48,20 @@ impl<'a> FeatureExtractor {
             .map(|(word, occurrences)| {
                 let tf = occurrences.len() as f32;
 
-                let all_upper_check = |w: &str| {
-                    let is_large = w.graphemes(true).count() > 1;
-                    let upper_regex = get_upper_case_regex();
-                    match upper_regex {
-                        Some(r) => is_large && r.is_match(w),
-                        None => is_large && w.to_uppercase().as_str() == w,
-                    }
-                };
-                let capitalized_check = |w: &str| {
-                    let capitalized_regex = get_capitalized_regex();
-                    match capitalized_regex {
-                        Some(r) => r.is_match(w),
-                        None => {
-                            w.chars().next().unwrap().is_uppercase()
-                                && w.chars().skip(1).all(char::is_lowercase)
-                        }
-                    }
-                };
-
                 let (tf_upper, tf_capitalized) = occurrences.iter().fold(
                     (0.0_f32, 0.0_f32),
-                    |(tf_upper, tf_capitalized), occurrence| {
+                    |(tf_upper, tf_capitalized), (w, _)| {
                         (
                             tf_upper
-                                + if all_upper_check(occurrence.0) {
+                                + if w.graphemes(true).count() > 1
+                                    && &w.to_uppercase().as_str() == w
+                                {
                                     1.0
                                 } else {
                                     0.0
                                 },
                             tf_capitalized
-                                + if capitalized_check(occurrence.0) {
+                                + if w.chars().next().unwrap_or(' ').is_uppercase() {
                                     1.0
                                 } else {
                                     0.0
