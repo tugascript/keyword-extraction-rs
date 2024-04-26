@@ -85,7 +85,7 @@ impl YakeLogic {
             .collect::<HashMap<String, f32>>()
     }
 
-    fn score_terms<'a>(word_scores: HashMap<&'a str, f32>) -> HashMap<String, f32> {
+    fn score_terms(word_scores: HashMap<&str, f32>) -> HashMap<String, f32> {
         let word_scores_len = word_scores.len();
         let (vec_scores, max) = word_scores.into_iter().fold(
             (
