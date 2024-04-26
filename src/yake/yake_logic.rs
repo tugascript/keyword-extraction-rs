@@ -57,7 +57,10 @@ impl YakeLogic {
     ) -> HashMap<String, f32> {
         let candidates_len = candidates.len();
         let (vec_scores, max) = candidates.into_iter().fold(
-            (Vec::<(String, f32)>::with_capacity(candidates_len), 0.0_f32),
+            (
+                Vec::<(String, f32)>::with_capacity(candidates_len),
+                f32::EPSILON,
+            ),
             |(mut acc, max), (k, pc)| {
                 let (prod, sum) = pc.lexical_form.iter().fold(
                     (*dedup_hashmap.get(k.as_str()).unwrap_or(&1.0), 0.0),
@@ -87,7 +90,7 @@ impl YakeLogic {
         let (vec_scores, max) = word_scores.into_iter().fold(
             (
                 Vec::<(String, f32)>::with_capacity(word_scores_len),
-                0.0_f32,
+                f32::EPSILON,
             ),
             |(mut acc, max), (k, score)| {
                 let inverse_score = 1.0 / score;
