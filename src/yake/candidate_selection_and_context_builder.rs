@@ -79,7 +79,7 @@ impl<'a> CandidateSelectionAndContextBuilder {
             ),
             |(mut candidates, mut dedup_map, mut occurrences, mut lr_contexts), (i, sentence)| {
                 sentence.words.iter().enumerate().fold(
-                    Vec::<(&str, usize)>::new(),
+                    Vec::<(&str, usize)>::with_capacity(window_size + 1),
                     |mut buffer, (j, w1)| {
                         // Candidate Selection
                         (j + 1..=min(j + ngram, sentence.length)).for_each(|k: usize| {
