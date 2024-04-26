@@ -94,6 +94,7 @@ impl<'a> FeatureExtractor {
                     .get(word)
                     .map(|(v1, v2)| (v1.as_slice(), v2.as_slice()))
                     .unwrap_or((&[], &[]));
+
                 let left_context_unique = left_right_context
                     .0
                     .iter()
@@ -111,7 +112,6 @@ impl<'a> FeatureExtractor {
                     .iter()
                     .copied()
                     .collect::<HashSet<&str>>();
-
                 let wr = if !right_context_unique.is_empty() {
                     right_context_unique.len() as f32
                         / (left_right_context.1.len() as f32 + f32::EPSILON)
