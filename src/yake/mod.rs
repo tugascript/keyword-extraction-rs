@@ -91,37 +91,41 @@ impl Yake {
     /// Get the top n (n-gram terms) keywords with the highest score.
     pub fn get_ranked_keywords(&self, n: usize) -> Vec<String> {
         let capacity = min(self.size, n);
-        let mut vec = Vec::with_capacity(capacity);
-
-        sort_ranked_map(&self.keyword_rank)
-            .into_iter()
-            .for_each(|(word, _)| {
-                if vec.len() == capacity {
-                    return;
+        let result = sort_ranked_map(&self.keyword_rank).into_iter().try_fold(
+            Vec::<String>::with_capacity(capacity),
+            |mut acc, (word, _)| {
+                if acc.len() == capacity {
+                    return Err(acc);
                 }
+                build_ranked_keywords(&mut acc, word, self.threshold);
+                Ok(acc)
+            },
+        );
 
-                build_ranked_keywords(&mut vec, word, self.threshold);
-            });
-
-        vec
+        match result {
+            Ok(v) => v,
+            Err(v) => v,
+        }
     }
 
     /// Gets the top n (n-gram terms) keywords with the highest score and their scores.
     pub fn get_ranked_keyword_scores(&self, n: usize) -> Vec<(String, f32)> {
         let capacity = min(self.size, n);
-        let mut vec = Vec::with_capacity(capacity);
-
-        sort_ranked_map(&self.keyword_rank)
-            .into_iter()
-            .for_each(|(word, score)| {
-                if vec.len() == capacity {
-                    return;
+        let result = sort_ranked_map(&self.keyword_rank).into_iter().try_fold(
+            Vec::<(String, f32)>::with_capacity(capacity),
+            |mut acc, (word, score)| {
+                if acc.len() == capacity {
+                    return Err(acc);
                 }
+                build_ranked_scores(&mut acc, word, *score, self.threshold);
+                Ok(acc)
+            },
+        );
 
-                build_ranked_scores(&mut vec, word, *score, self.threshold);
-            });
-
-        vec
+        match result {
+            Ok(v) => v,
+            Err(v) => v,
+        }
     }
 
     /// Gets the top n terms with the highest score.
