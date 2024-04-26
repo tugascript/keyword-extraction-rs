@@ -49,6 +49,10 @@ fn is_punctuation(word: &str, punctuation: &HashSet<&str>) -> bool {
     word.is_empty() || ((word.graphemes(true).count() == 1) && punctuation.contains(word))
 }
 
+fn is_invalid_word(word: &str, punctuation: &HashSet<&str>, stop_words: &HashSet<&str>) -> bool {
+    is_punctuation(word, punctuation) || stop_words.contains(word) || word.parse::<f32>().is_ok()
+}
+
 pub struct CandidateSelectionAndContextBuilder;
 
 impl<'a> CandidateSelectionAndContextBuilder {
@@ -82,11 +86,10 @@ impl<'a> CandidateSelectionAndContextBuilder {
                             .iter()
                             .map(|s| s.as_str())
                             .collect::<Vec<&'a str>>();
-                        if stems.iter().any(|w| {
-                            is_punctuation(w, &punctuation)
-                                || stop_words.contains(w)
-                                || w.parse::<f32>().is_ok()
-                        }) {
+                        if stems
+                            .iter()
+                            .any(|w| is_invalid_word(&w, &punctuation, &stop_words))
+                        {
                             return;
                         }
 
@@ -119,7 +122,7 @@ impl<'a> CandidateSelectionAndContextBuilder {
                         let key1 = sentence.stemmed[j].as_str();
                         let w1_str = w1.as_ref();
 
-                        if !(is_punctuation(key1, &punctuation) || stop_words.contains(key1)) {
+                        if !is_invalid_word(key1, &punctuation, &stop_words) {
                             let entry = occurrences.entry(key1).or_default();
                             entry.push((w1_str, i));
                         }
