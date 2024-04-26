@@ -29,7 +29,7 @@ use crate::common::{get_ranked_scores, get_ranked_strings, sort_ranked_map, PUNC
 use levenshtein::Levenshtein;
 use yake_logic::YakeLogic;
 
-fn build_ranked_keywords(vec: &mut Vec<String>, word: &str, threshold: f32) -> () {
+fn build_ranked_keywords(vec: &mut Vec<String>, word: &str, threshold: f32) {
     if vec
         .iter()
         .any(|w| Levenshtein::new(w, word).ratio() >= threshold)
@@ -39,7 +39,7 @@ fn build_ranked_keywords(vec: &mut Vec<String>, word: &str, threshold: f32) -> (
     vec.push(word.to_string());
 }
 
-fn build_ranked_scores(vec: &mut Vec<(String, f32)>, word: &str, score: f32, threshold: f32) -> () {
+fn build_ranked_scores(vec: &mut Vec<(String, f32)>, word: &str, score: f32, threshold: f32) {
     if vec
         .iter()
         .any(|(w, _)| Levenshtein::new(w, word).ratio() >= threshold)

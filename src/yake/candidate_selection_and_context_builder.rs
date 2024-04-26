@@ -15,7 +15,7 @@
 
 use std::{
     cmp::min,
-    collections::{HashMap, HashSet},
+    collections::{HashMap, HashSet, VecDeque},
 };
 
 use unicode_segmentation::UnicodeSegmentation;
@@ -79,7 +79,7 @@ impl<'a> CandidateSelectionAndContextBuilder {
             ),
             |(mut candidates, mut dedup_map, mut occurrences, mut lr_contexts), (i, sentence)| {
                 sentence.words.iter().enumerate().fold(
-                    Vec::<(&str, usize)>::with_capacity(window_size + 1),
+                    VecDeque::<(&str, usize)>::with_capacity(window_size + 1),
                     |mut buffer, (j, w1)| {
                         // Candidate Selection
                         (j + 1..=min(j + ngram, sentence.length)).for_each(|k: usize| {
@@ -89,7 +89,7 @@ impl<'a> CandidateSelectionAndContextBuilder {
                                 .collect::<Vec<&'a str>>();
                             if stems
                                 .iter()
-                                .any(|w| is_invalid_word(&w, &punctuation, &stop_words))
+                                .any(|w| is_invalid_word(w, &punctuation, &stop_words))
                             {
                                 return;
                             }
@@ -134,10 +134,10 @@ impl<'a> CandidateSelectionAndContextBuilder {
                             entry_2.1.push(w1_str);
                         });
 
-                        buffer.push((w1_str, j));
+                        buffer.push_back((w1_str, j));
 
                         if buffer.len() > window_size {
-                            buffer.remove(0);
+                            buffer.pop_front();
                         }
 
                         buffer
