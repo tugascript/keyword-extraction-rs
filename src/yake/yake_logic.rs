@@ -55,9 +55,9 @@ impl YakeLogic {
         dedup_hashmap: HashMap<&'a str, f32>,
         word_scores: &HashMap<&'a str, f32>,
     ) -> HashMap<String, f32> {
-        candidates
-            .into_iter()
-            .map(|(k, pc)| {
+        let (vec_scores, max) = candidates.into_iter().fold(
+            (Vec::<(String, f32)>::new(), 0.0_f32),
+            |(mut acc, max), (k, pc)| {
                 let (prod, sum) = pc.lexical_form.iter().fold(
                     (*dedup_hashmap.get(k.as_str()).unwrap_or(&1.0), 0.0),
                     |acc, w| {
@@ -68,16 +68,32 @@ impl YakeLogic {
                 );
                 let tf = pc.surface_forms.len() as f32;
                 let sum = if sum == -1.0 { 1.0 - f32::EPSILON } else { sum };
-                let value = prod / (tf * (1.0 + sum));
-                (k, 1.0 / value)
-            })
+                let score = prod / (tf * (1.0 + sum));
+                let inverse_score = 1.0 / score;
+                acc.push((k, inverse_score));
+                (acc, max.max(inverse_score))
+            },
+        );
+
+        vec_scores
+            .into_iter()
+            .map(|(k, v)| (k, v / max))
             .collect::<HashMap<String, f32>>()
     }
 
     fn score_terms<'a>(word_scores: HashMap<&'a str, f32>) -> HashMap<String, f32> {
-        word_scores
+        let (vec_scores, max) = word_scores.into_iter().fold(
+            (Vec::<(String, f32)>::new(), 0.0_f32),
+            |(mut acc, max), (k, score)| {
+                let inverse_score = 1.0 / score;
+                acc.push((k.to_string(), inverse_score));
+                (acc, max.max(inverse_score))
+            },
+        );
+
+        vec_scores
             .into_iter()
-            .map(|(k, v)| (k.to_string(), 1.0 / v))
+            .map(|(k, v)| (k, v / max))
             .collect::<HashMap<String, f32>>()
     }
 }

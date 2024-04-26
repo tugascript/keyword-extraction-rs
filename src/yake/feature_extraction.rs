@@ -27,28 +27,23 @@ impl<'a> FeatureExtractor {
         contexts: LeftRightContext<'a>,
         sentences_len: f32,
     ) -> HashMap<&'a str, f32> {
-        let tf_values = occurrences
+        let (tf_total, tf_max_u) = occurrences.values().fold((0, 0), |(tf_total, tf_max), v| {
+            let length = v.len();
+            (tf_total + length, tf_max.max(length))
+        });
+        let tf_max = tf_max_u as f32;
+        let tf_mean = tf_total as f32 / (occurrences.len() as f32 + f32::EPSILON);
+        let tf_std = occurrences
             .values()
-            .map(|o| o.len())
-            .collect::<Vec<usize>>();
-        let tf_total = tf_values.iter().sum::<usize>() as f32;
-        let tf_mean = tf_total / (tf_values.len() as f32 + f32::EPSILON);
-        let tf_std = tf_values
-            .iter()
-            .fold(0.0_f32, |a, v| a + (*v as f32 - tf_mean).powi(2))
+            .fold(0.0_f32, |a, v| a + (v.len() as f32 - tf_mean).powi(2))
             .sqrt();
-        let tf_max = tf_values
-            .iter()
-            .max()
-            .map(|x| *x as f32)
-            .unwrap_or(f32::EPSILON);
 
         occurrences
             .into_iter()
-            .map(|(word, occurrences)| {
-                let tf = occurrences.len() as f32;
+            .map(|(word, occurrence)| {
+                let tf = occurrence.len() as f32;
 
-                let (tf_upper, tf_capitalized) = occurrences.iter().fold(
+                let (tf_upper, tf_capitalized) = occurrence.iter().fold(
                     (0.0_f32, 0.0_f32),
                     |(tf_upper, tf_capitalized), (w, _)| {
                         (
@@ -76,16 +71,16 @@ impl<'a> FeatureExtractor {
                 let casing = tf_upper.max(tf_capitalized) / (1.0 + tf.ln());
                 let frequency = tf / (tf_mean + tf_std + f32::EPSILON);
 
-                let occ_len = occurrences.len();
+                let occ_len = occurrence.len();
                 let median = if occ_len == 0 {
                     0.0
                 } else if occ_len == 1 {
-                    occurrences[0].1 as f32
+                    occurrence[0].1 as f32
                 } else if occ_len % 2 == 0 {
-                    occurrences[occ_len / 2].1 as f32
+                    occurrence[occ_len / 2].1 as f32
                 } else {
                     let mid = occ_len / 2;
-                    (occurrences[mid].1 + occurrences[mid - 1].1) as f32 / 2.0
+                    (occurrence[mid].1 + occurrence[mid - 1].1) as f32 / 2.0
                 };
 
                 let position = (3.0 + median).ln().ln();
@@ -121,7 +116,7 @@ impl<'a> FeatureExtractor {
 
                 let relatedness = 1.0 + ((wl + wr) * (tf / tf_max));
 
-                let unique_sentences = occurrences
+                let unique_sentences = occurrence
                     .iter()
                     .map(|occ| occ.1)
                     .collect::<HashSet<usize>>();

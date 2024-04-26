@@ -78,47 +78,44 @@ impl<'a> CandidateSelectionAndContextBuilder {
                 LeftRightContext::new(),
             ),
             |(mut candidates, mut dedup_map, mut occurrences, mut lr_contexts), (i, sentence)| {
-                // Candidate Selection
-                let sentence_len = sentence.length;
-                (0..sentence_len).for_each(|j| {
-                    (j + 1..=min(j + ngram, sentence_len)).for_each(|k: usize| {
-                        let stems = sentence.stemmed[j..k]
-                            .iter()
-                            .map(|s| s.as_str())
-                            .collect::<Vec<&'a str>>();
-                        if stems
-                            .iter()
-                            .any(|w| is_invalid_word(&w, &punctuation, &stop_words))
-                        {
-                            return;
-                        }
-
-                        let words = sentence.words[j..k]
-                            .iter()
-                            .map(|s| s.as_ref())
-                            .collect::<Vec<&'a str>>();
-                        let key = stems.join(" ");
-                        let entry = match candidates.get_mut(&key) {
-                            Some(entry) => entry,
-                            None => {
-                                if stems.len() > 1 {
-                                    stems.iter().for_each(|w| {
-                                        let entry = dedup_map.entry(*w).or_insert(0.0);
-                                        *entry += 1.0;
-                                    });
-                                }
-
-                                candidates.entry(key).or_insert(Candidate::new(stems))
-                            }
-                        };
-                        entry.add(words);
-                    });
-                });
-
-                // Context Builder
                 sentence.words.iter().enumerate().fold(
                     Vec::<(&str, usize)>::new(),
                     |mut buffer, (j, w1)| {
+                        // Candidate Selection
+                        (j + 1..=min(j + ngram, sentence.length)).for_each(|k: usize| {
+                            let stems = sentence.stemmed[j..k]
+                                .iter()
+                                .map(|s| s.as_str())
+                                .collect::<Vec<&'a str>>();
+                            if stems
+                                .iter()
+                                .any(|w| is_invalid_word(&w, &punctuation, &stop_words))
+                            {
+                                return;
+                            }
+
+                            let words = sentence.words[j..k]
+                                .iter()
+                                .map(|s| s.as_ref())
+                                .collect::<Vec<&'a str>>();
+                            let key = stems.join(" ");
+                            let entry = match candidates.get_mut(&key) {
+                                Some(entry) => entry,
+                                None => {
+                                    if stems.len() > 1 {
+                                        stems.iter().for_each(|w| {
+                                            let entry = dedup_map.entry(*w).or_insert(0.0);
+                                            *entry += 1.0;
+                                        });
+                                    }
+
+                                    candidates.entry(key).or_insert(Candidate::new(stems))
+                                }
+                            };
+                            entry.add(words);
+                        });
+
+                        // Context Building
                         let key1 = sentence.stemmed[j].as_str();
                         let w1_str = w1.as_ref();
 
