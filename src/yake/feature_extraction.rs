@@ -61,7 +61,10 @@ impl<'a> FeatureExtractor {
                                     0.0
                                 },
                             tf_capitalized
-                                + if w.chars().next().unwrap_or(' ').is_uppercase() {
+                                + if w.chars().next().unwrap_or(' ').is_uppercase()
+                                    && (w.graphemes(true).count() == 1
+                                        || w.chars().skip(1).any(|c| c.is_lowercase()))
+                                {
                                     1.0
                                 } else {
                                     0.0
