@@ -30,7 +30,7 @@ Add the library to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-keyword_extraction = "1.4.1"
+keyword_extraction = "1.4.2"
 ```
 
 Or use cargo add:
@@ -165,8 +165,8 @@ fn main() {
 
 Create a `YakeParams` enum which can be one of the following:
 
-1. With defaults: `TextRankParams::WithDefaults`;
-2. All: `TextRankParams::All`;
+1. With defaults: `YakeParams::WithDefaults`;
+2. All: `YakeParams::All`;
 
 ```rust
 use keyword_extraction::yake::{Yake, YakeParams};
