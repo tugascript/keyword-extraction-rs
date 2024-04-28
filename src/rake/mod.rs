@@ -55,8 +55,8 @@ impl Rake {
         get_ranked_strings(&self.phrase_scores, n)
     }
 
-    /// Gets the top n phrases with the highest score and their score.
-    pub fn get_ranked_phares_scores(&self, n: usize) -> Vec<(String, f32)> {
+    /// Gets the top n phrases with the highest score and their scores.
+    pub fn get_ranked_phrases_scores(&self, n: usize) -> Vec<(String, f32)> {
         get_ranked_scores(&self.phrase_scores, n)
     }
 
