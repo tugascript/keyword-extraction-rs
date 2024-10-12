@@ -15,6 +15,9 @@
 
 use std::collections::{HashMap, HashSet};
 
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
+
 use super::{
     candidate_selection_and_context_builder::{Candidate, CandidateSelectionAndContextBuilder},
     feature_extraction::FeatureExtractor,
@@ -23,6 +26,30 @@ use super::{
 };
 
 pub struct YakeLogic;
+
+fn score_candidate<'a>(
+    dedup_hashmap: &'a HashMap<&'a str, f32>,
+    word_scores: &HashMap<&'a str, f32>,
+    mut acc: Vec<(String, f32)>,
+    max: f32,
+    k: String,
+    pc: Candidate<'a>,
+) -> (Vec<(String, f32)>, f32) {
+    let (prod, sum) = pc.lexical_form.iter().fold(
+        (*dedup_hashmap.get(k.as_str()).unwrap_or(&1.0), 0.0),
+        |acc, w| {
+            let weight = *word_scores.get(*w).unwrap_or(&0.0);
+
+            (acc.0 * weight, acc.1 + weight)
+        },
+    );
+    let tf = pc.surface_forms.len() as f32;
+    let sum = if sum == -1.0 { 1.0 - f32::EPSILON } else { sum };
+    let score = prod / (tf * (1.0 + sum));
+    let inverse_score = 1.0 / score;
+    acc.push((k, inverse_score));
+    (acc, max.max(inverse_score))
+}
 
 impl YakeLogic {
     pub fn build_yake(
@@ -56,52 +83,95 @@ impl YakeLogic {
         word_scores: &HashMap<&'a str, f32>,
     ) -> HashMap<String, f32> {
         let candidates_len = candidates.len();
-        let (vec_scores, max) = candidates.into_iter().fold(
-            (
-                Vec::<(String, f32)>::with_capacity(candidates_len),
-                f32::EPSILON,
-            ),
-            |(mut acc, max), (k, pc)| {
-                let (prod, sum) = pc.lexical_form.iter().fold(
-                    (*dedup_hashmap.get(k.as_str()).unwrap_or(&1.0), 0.0),
-                    |acc, w| {
-                        let weight = *word_scores.get(*w).unwrap_or(&0.0);
 
-                        (acc.0 * weight, acc.1 + weight)
+        #[cfg(feature = "parallel")]
+        {
+            let (vec_scores, max) = candidates
+                .into_par_iter()
+                .fold(
+                    || (Vec::<(String, f32)>::new(), f32::EPSILON),
+                    |(acc, max), (k, pc)| {
+                        score_candidate(&dedup_hashmap, word_scores, acc, max, k, pc)
+                    },
+                )
+                .reduce(
+                    || (Vec::with_capacity(candidates_len), f32::EPSILON),
+                    |(mut acc1, max1), (mut acc2, max2)| {
+                        acc1.append(&mut acc2);
+                        (acc1, max1.max(max2))
                     },
                 );
-                let tf = pc.surface_forms.len() as f32;
-                let sum = if sum == -1.0 { 1.0 - f32::EPSILON } else { sum };
-                let score = prod / (tf * (1.0 + sum));
-                let inverse_score = 1.0 / score;
-                acc.push((k, inverse_score));
-                (acc, max.max(inverse_score))
-            },
-        );
 
-        vec_scores
-            .into_iter()
-            .map(|(k, v)| (k, v / max))
-            .collect::<HashMap<String, f32>>()
+            vec_scores
+                .into_par_iter()
+                .map(|(k, v)| (k, v / max))
+                .collect::<HashMap<String, f32>>()
+        }
+
+        #[cfg(not(feature = "parallel"))]
+        {
+            let (vec_scores, max) = candidates.into_iter().fold(
+                (
+                    Vec::<(String, f32)>::with_capacity(candidates_len),
+                    f32::EPSILON,
+                ),
+                |(acc, max), (k, pc)| score_candidate(&dedup_hashmap, word_scores, acc, max, k, pc),
+            );
+
+            vec_scores
+                .into_iter()
+                .map(|(k, v)| (k, v / max))
+                .collect::<HashMap<String, f32>>()
+        }
     }
 
     fn score_terms(word_scores: HashMap<&str, f32>) -> HashMap<String, f32> {
         let word_scores_len = word_scores.len();
-        let (vec_scores, max) = word_scores.into_iter().fold(
-            (
-                Vec::<(String, f32)>::with_capacity(word_scores_len),
-                f32::EPSILON,
-            ),
-            |(mut acc, max), (k, score)| {
-                let inverse_score = 1.0 / score;
-                acc.push((k.to_string(), inverse_score));
-                (acc, max.max(inverse_score))
-            },
-        );
 
-        vec_scores
-            .into_iter()
-            .map(|(k, v)| (k, v / max))
-            .collect::<HashMap<String, f32>>()
+        #[cfg(feature = "parallel")]
+        {
+            let (vec_scores, max) = word_scores
+                .into_par_iter()
+                .fold(
+                    || (Vec::<(String, f32)>::new(), f32::EPSILON),
+                    |(mut acc, max), (k, score)| {
+                        let inverse_score = 1.0 / score;
+                        acc.push((k.to_string(), inverse_score));
+                        (acc, max.max(inverse_score))
+                    },
+                )
+                .reduce(
+                    || (Vec::with_capacity(word_scores_len), f32::EPSILON),
+                    |(mut acc1, max1), (mut acc2, max2)| {
+                        acc1.append(&mut acc2);
+                        (acc1, max1.max(max2))
+                    },
+                );
+
+            vec_scores
+                .into_par_iter()
+                .map(|(k, v)| (k, v / max))
+                .collect::<HashMap<String, f32>>()
+        }
+
+        #[cfg(not(feature = "parallel"))]
+        {
+            let (vec_scores, max) = word_scores.into_iter().fold(
+                (
+                    Vec::<(String, f32)>::with_capacity(word_scores_len),
+                    f32::EPSILON,
+                ),
+                |(mut acc, max), (k, score)| {
+                    let inverse_score = 1.0 / score;
+                    acc.push((k.to_string(), inverse_score));
+                    (acc, max.max(inverse_score))
+                },
+            );
+
+            vec_scores
+                .into_iter()
+                .map(|(k, v)| (k, v / max))
+                .collect::<HashMap<String, f32>>()
+        }
     }
 }
