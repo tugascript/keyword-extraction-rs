@@ -111,24 +111,18 @@ impl RakeLogic {
     fn parallel_word_frequency(phrases: &[Vec<String>]) -> HashMap<&str, f32> {
         phrases
             .par_iter()
-            .fold(
-                HashMap::<&str, f32>::new,
-                |mut acc, phrase| {
-                    phrase.iter().for_each(|word| {
-                        *acc.entry(word).or_insert(0.0) += 1.0;
-                    });
-                    acc
-                },
-            )
-            .reduce(
-                HashMap::<&str, f32>::new,
-                |mut acc, hmap| {
-                    hmap.iter().for_each(|(word, count)| {
-                        *acc.entry(word).or_insert(0.0) += count;
-                    });
-                    acc
-                },
-            )
+            .fold(HashMap::<&str, f32>::new, |mut acc, phrase| {
+                phrase.iter().for_each(|word| {
+                    *acc.entry(word).or_insert(0.0) += 1.0;
+                });
+                acc
+            })
+            .reduce(HashMap::<&str, f32>::new, |mut acc, hmap| {
+                hmap.iter().for_each(|(word, count)| {
+                    *acc.entry(word).or_insert(0.0) += count;
+                });
+                acc
+            })
     }
 
     fn generate_word_degree(phrases: &[Vec<String>]) -> HashMap<&str, f32> {
@@ -161,27 +155,21 @@ impl RakeLogic {
     fn parallel_word_degree(phrases: &[Vec<String>]) -> HashMap<&str, f32> {
         phrases
             .par_iter()
-            .fold(
-                HashMap::<&str, f32>::new,
-                |mut acc, phrase| {
-                    let len = phrase.len() as f32 - 1.0;
-                    phrase.iter().for_each(|word| {
-                        acc.entry(word)
-                            .and_modify(|count| *count += len)
-                            .or_insert(len);
-                    });
-                    acc
-                },
-            )
-            .reduce(
-                HashMap::<&str, f32>::new,
-                |mut acc, hmap| {
-                    hmap.iter().for_each(|(word, degree)| {
-                        *acc.entry(word).or_insert(0.0) += degree;
-                    });
-                    acc
-                },
-            )
+            .fold(HashMap::<&str, f32>::new, |mut acc, phrase| {
+                let len = phrase.len() as f32 - 1.0;
+                phrase.iter().for_each(|word| {
+                    acc.entry(word)
+                        .and_modify(|count| *count += len)
+                        .or_insert(len);
+                });
+                acc
+            })
+            .reduce(HashMap::<&str, f32>::new, |mut acc, hmap| {
+                hmap.iter().for_each(|(word, degree)| {
+                    *acc.entry(word).or_insert(0.0) += degree;
+                });
+                acc
+            })
     }
 
     fn calculate_word_scores(
