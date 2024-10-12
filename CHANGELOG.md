@@ -3,7 +3,6 @@
 ## v1.5.0
 
 - add `"parallel"` feature to YAKE algorithm;
-- make `"yake"` feature default and general available;
 
 ## v1.4.3
 
