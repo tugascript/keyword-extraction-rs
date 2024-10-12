@@ -23,7 +23,7 @@
 ## v1.3.1
 
 - performance improvements in TextRank algorithm;
-- performance improvements i Co-occurrence algorithm;
+- performance improvements in Co-occurrence algorithm;
 
 ## v1.3.0
 
