@@ -20,6 +20,9 @@ use std::{
 
 use unicode_segmentation::UnicodeSegmentation;
 
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
+
 use super::sentences_builder::Sentence;
 
 pub struct Candidate<'a> {
@@ -81,7 +84,7 @@ fn process_sentences<'a, 'b>(
                     .collect::<Vec<&'a str>>();
                 if stems
                     .iter()
-                    .any(|w| is_invalid_word(w, &punctuation, &stop_words))
+                    .any(|w| is_invalid_word(w, punctuation, stop_words))
                 {
                     return;
                 }
@@ -111,7 +114,7 @@ fn process_sentences<'a, 'b>(
             let key1 = sentence.stemmed[j].as_str();
             let w1_str = w1.as_ref();
 
-            if !is_invalid_word(key1, &punctuation, &stop_words) {
+            if !is_invalid_word(key1, punctuation, stop_words) {
                 let entry = occurrences.entry(key1).or_default();
                 entry.push((w1_str, i));
             }
@@ -154,27 +157,114 @@ impl<'a> CandidateSelectionAndContextBuilder {
         Occurrences<'a>,
         LeftRightContext<'a>,
     ) {
-        sentences.iter().enumerate().fold(
-            (
-                Candidates::new(),
-                DedupMap::new(),
-                Occurrences::new(),
-                LeftRightContext::new(),
-            ),
-            |(candidates, dedup_map, occurrences, lr_contexts), (i, sentence)| {
-                process_sentences(
-                    ngram,
-                    window_size,
-                    &stop_words,
-                    &punctuation,
-                    candidates,
-                    dedup_map,
-                    occurrences,
-                    lr_contexts,
-                    i,
-                    sentence,
+        #[cfg(feature = "parallel")]
+        {
+            sentences
+                .par_iter()
+                .enumerate()
+                .fold(
+                    || {
+                        (
+                            Candidates::new(),
+                            DedupMap::new(),
+                            Occurrences::new(),
+                            LeftRightContext::new(),
+                        )
+                    },
+                    |(candidates, dedup_map, occurrences, lr_contexts), (i, sentence)| {
+                        process_sentences(
+                            ngram,
+                            window_size,
+                            &stop_words,
+                            &punctuation,
+                            candidates,
+                            dedup_map,
+                            occurrences,
+                            lr_contexts,
+                            i,
+                            sentence,
+                        )
+                    },
                 )
-            },
-        )
+                .reduce(
+                    || {
+                        (
+                            Candidates::new(),
+                            DedupMap::new(),
+                            Occurrences::new(),
+                            LeftRightContext::new(),
+                        )
+                    },
+                    |(mut candidates1, mut dedup_map1, mut occurrences1, mut lr_contexts1),
+                     (candidates2, dedup_map2, occurrences2, lr_contexts2)| {
+                        // Merge Candidates
+                        for (key, mut candidate2) in candidates2 {
+                            candidates1
+                                .entry(key)
+                                .and_modify(|candidate1| {
+                                    candidate1
+                                        .surface_forms
+                                        .append(&mut candidate2.surface_forms);
+                                })
+                                .or_insert(candidate2);
+                        }
+
+                        // Merge DedupMap
+                        for (key, value) in dedup_map2 {
+                            *dedup_map1.entry(key).or_insert(0.0) += value;
+                        }
+
+                        // Merge Occurrences
+                        for (key, mut occurrence_list) in occurrences2 {
+                            occurrences1
+                                .entry(key)
+                                .or_default()
+                                .append(&mut occurrence_list);
+                        }
+
+                        // Merge LeftRightContext
+                        for (key, (mut left_context, mut right_context)) in lr_contexts2 {
+                            lr_contexts1
+                                .entry(key)
+                                .or_insert_with(|| (Vec::new(), Vec::new()))
+                                .0
+                                .append(&mut left_context);
+                            lr_contexts1
+                                .entry(key)
+                                .or_insert_with(|| (Vec::new(), Vec::new()))
+                                .1
+                                .append(&mut right_context);
+                        }
+
+                        (candidates1, dedup_map1, occurrences1, lr_contexts1)
+                    },
+                )
+        }
+
+        #[cfg(not(feature = "parallel"))]
+        {
+            sentences.iter().enumerate().fold(
+                (
+                    Candidates::new(),
+                    DedupMap::new(),
+                    Occurrences::new(),
+                    LeftRightContext::new(),
+                ),
+                |(candidates, dedup_map, occurrences, lr_contexts), (i, sentence)| {
+                    process_sentences(
+                        ngram,
+                        window_size,
+                        &stop_words,
+                        &punctuation,
+                        candidates,
+                        dedup_map,
+                        occurrences,
+                        lr_contexts,
+                        i,
+                        sentence,
+                    )
+                },
+            )
+        }
     }
 }
