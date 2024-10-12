@@ -30,7 +30,7 @@ Add the library to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-keyword_extraction = "1.4.3"
+keyword_extraction = "1.5.0"
 ```
 
 Or use cargo add:
