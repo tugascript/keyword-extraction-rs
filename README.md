@@ -161,8 +161,6 @@ fn main() {
 
 #### YAKE
 
-**NOTE:** YAKE is a more complex algorithm and doesn't support the `parallel` feature yet.
-
 Create a `YakeParams` enum which can be one of the following:
 
 1. With defaults: `YakeParams::WithDefaults`;
