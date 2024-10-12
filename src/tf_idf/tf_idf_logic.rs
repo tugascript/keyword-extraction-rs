@@ -59,24 +59,18 @@ impl TfIdfLogic {
     fn parallel_word_hashmap(documents: &[String]) -> HashMap<&str, f32> {
         documents
             .par_iter()
-            .fold(
-                HashMap::new,
-                |mut acc, document| {
-                    document
-                        .split_whitespace()
-                        .for_each(|word| *acc.entry(word).or_insert(0.0) += 1.0);
-                    acc
-                },
-            )
-            .reduce(
-                HashMap::new,
-                |mut acc, hmap| {
-                    for (word, count) in hmap {
-                        *acc.entry(word).or_insert(0.0) += count;
-                    }
-                    acc
-                },
-            )
+            .fold(HashMap::new, |mut acc, document| {
+                document
+                    .split_whitespace()
+                    .for_each(|word| *acc.entry(word).or_insert(0.0) += 1.0);
+                acc
+            })
+            .reduce(HashMap::new, |mut acc, hmap| {
+                for (word, count) in hmap {
+                    *acc.entry(word).or_insert(0.0) += count;
+                }
+                acc
+            })
     }
 
     fn generate_unique_word_hashmap(documents: &[String]) -> HashMap<&str, f32> {
@@ -109,24 +103,18 @@ impl TfIdfLogic {
         documents
             .par_iter()
             .map(|document| document.split_whitespace().collect::<HashSet<&str>>())
-            .fold(
-                HashMap::new,
-                |mut acc, unique_words| {
-                    unique_words
-                        .into_iter()
-                        .for_each(|word| *acc.entry(word).or_insert(0.0) += 1.0);
-                    acc
-                },
-            )
-            .reduce(
-                HashMap::new,
-                |mut acc, hmap| {
-                    for (word, count) in hmap {
-                        *acc.entry(word).or_insert(0.0) += count;
-                    }
-                    acc
-                },
-            )
+            .fold(HashMap::new, |mut acc, unique_words| {
+                unique_words
+                    .into_iter()
+                    .for_each(|word| *acc.entry(word).or_insert(0.0) += 1.0);
+                acc
+            })
+            .reduce(HashMap::new, |mut acc, hmap| {
+                for (word, count) in hmap {
+                    *acc.entry(word).or_insert(0.0) += count;
+                }
+                acc
+            })
     }
 
     fn calculate_tf(tf: HashMap<&str, f32>) -> HashMap<&str, f32> {

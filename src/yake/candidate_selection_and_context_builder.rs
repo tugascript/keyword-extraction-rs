@@ -20,6 +20,9 @@ use std::{
 
 use unicode_segmentation::UnicodeSegmentation;
 
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
+
 use super::sentences_builder::Sentence;
 
 pub struct Candidate<'a> {
@@ -53,6 +56,90 @@ fn is_invalid_word(word: &str, punctuation: &HashSet<&str>, stop_words: &HashSet
     is_punctuation(word, punctuation) || stop_words.contains(word) || word.parse::<f32>().is_ok()
 }
 
+fn process_sentences<'a, 'b>(
+    ngram: usize,
+    window_size: usize,
+    stop_words: &'b HashSet<&'a str>,
+    punctuation: &'b HashSet<&'a str>,
+    mut candidates: Candidates<'a>,
+    mut dedup_map: DedupMap<'a>,
+    mut occurrences: Occurrences<'a>,
+    mut lr_contexts: LeftRightContext<'a>,
+    i: usize,
+    sentence: &'a Sentence<'a>,
+) -> (
+    Candidates<'a>,
+    DedupMap<'a>,
+    Occurrences<'a>,
+    LeftRightContext<'a>,
+) {
+    sentence.words.iter().enumerate().fold(
+        VecDeque::<(&str, usize)>::with_capacity(window_size + 1),
+        |mut buffer, (j, w1)| {
+            // Candidate Selection
+            (j + 1..=min(j + ngram, sentence.length)).for_each(|k: usize| {
+                let stems = sentence.stemmed[j..k]
+                    .iter()
+                    .map(|s| s.as_str())
+                    .collect::<Vec<&'a str>>();
+                if stems
+                    .iter()
+                    .any(|w| is_invalid_word(w, punctuation, stop_words))
+                {
+                    return;
+                }
+
+                let words = sentence.words[j..k]
+                    .iter()
+                    .map(|s| s.as_ref())
+                    .collect::<Vec<&'a str>>();
+                let key = stems.join(" ");
+                let entry = match candidates.get_mut(&key) {
+                    Some(entry) => entry,
+                    None => {
+                        if stems.len() > 1 {
+                            stems.iter().for_each(|w| {
+                                let entry = dedup_map.entry(*w).or_insert(0.0);
+                                *entry += 1.0;
+                            });
+                        }
+
+                        candidates.entry(key).or_insert(Candidate::new(stems))
+                    }
+                };
+                entry.add(words);
+            });
+
+            // Context Building
+            let key1 = sentence.stemmed[j].as_str();
+            let w1_str = w1.as_ref();
+
+            if !is_invalid_word(key1, punctuation, stop_words) {
+                let entry = occurrences.entry(key1).or_default();
+                entry.push((w1_str, i));
+            }
+
+            buffer.iter().for_each(|(w2, k)| {
+                let entry_1 = lr_contexts.entry(key1).or_insert((Vec::new(), Vec::new()));
+                entry_1.0.push(*w2);
+                let entry_2 = lr_contexts
+                    .entry(sentence.stemmed[*k].as_str())
+                    .or_insert((Vec::new(), Vec::new()));
+                entry_2.1.push(w1_str);
+            });
+
+            buffer.push_back((w1_str, j));
+
+            if buffer.len() > window_size {
+                buffer.pop_front();
+            }
+
+            buffer
+        },
+    );
+    (candidates, dedup_map, occurrences, lr_contexts)
+}
+
 pub struct CandidateSelectionAndContextBuilder;
 
 impl<'a> CandidateSelectionAndContextBuilder {
@@ -70,81 +157,114 @@ impl<'a> CandidateSelectionAndContextBuilder {
         Occurrences<'a>,
         LeftRightContext<'a>,
     ) {
-        sentences.iter().enumerate().fold(
-            (
-                Candidates::new(),
-                DedupMap::new(),
-                Occurrences::new(),
-                LeftRightContext::new(),
-            ),
-            |(mut candidates, mut dedup_map, mut occurrences, mut lr_contexts), (i, sentence)| {
-                sentence.words.iter().enumerate().fold(
-                    VecDeque::<(&str, usize)>::with_capacity(window_size + 1),
-                    |mut buffer, (j, w1)| {
-                        // Candidate Selection
-                        (j + 1..=min(j + ngram, sentence.length)).for_each(|k: usize| {
-                            let stems = sentence.stemmed[j..k]
-                                .iter()
-                                .map(|s| s.as_str())
-                                .collect::<Vec<&'a str>>();
-                            if stems
-                                .iter()
-                                .any(|w| is_invalid_word(w, &punctuation, &stop_words))
-                            {
-                                return;
-                            }
-
-                            let words = sentence.words[j..k]
-                                .iter()
-                                .map(|s| s.as_ref())
-                                .collect::<Vec<&'a str>>();
-                            let key = stems.join(" ");
-                            let entry = match candidates.get_mut(&key) {
-                                Some(entry) => entry,
-                                None => {
-                                    if stems.len() > 1 {
-                                        stems.iter().for_each(|w| {
-                                            let entry = dedup_map.entry(*w).or_insert(0.0);
-                                            *entry += 1.0;
-                                        });
-                                    }
-
-                                    candidates.entry(key).or_insert(Candidate::new(stems))
-                                }
-                            };
-                            entry.add(words);
-                        });
-
-                        // Context Building
-                        let key1 = sentence.stemmed[j].as_str();
-                        let w1_str = w1.as_ref();
-
-                        if !is_invalid_word(key1, &punctuation, &stop_words) {
-                            let entry = occurrences.entry(key1).or_default();
-                            entry.push((w1_str, i));
-                        }
-
-                        buffer.iter().for_each(|(w2, k)| {
-                            let entry_1 =
-                                lr_contexts.entry(key1).or_insert((Vec::new(), Vec::new()));
-                            entry_1.0.push(*w2);
-                            let entry_2 = lr_contexts
-                                .entry(sentence.stemmed[*k].as_str())
-                                .or_insert((Vec::new(), Vec::new()));
-                            entry_2.1.push(w1_str);
-                        });
-
-                        buffer.push_back((w1_str, j));
-
-                        if buffer.len() > window_size {
-                            buffer.pop_front();
-                        }
-
-                        buffer
+        #[cfg(feature = "parallel")]
+        {
+            sentences
+                .par_iter()
+                .enumerate()
+                .fold(
+                    || {
+                        (
+                            Candidates::new(),
+                            DedupMap::new(),
+                            Occurrences::new(),
+                            LeftRightContext::new(),
+                        )
                     },
-                );
-                (candidates, dedup_map, occurrences, lr_contexts)
-            },
-        )
+                    |(candidates, dedup_map, occurrences, lr_contexts), (i, sentence)| {
+                        process_sentences(
+                            ngram,
+                            window_size,
+                            &stop_words,
+                            &punctuation,
+                            candidates,
+                            dedup_map,
+                            occurrences,
+                            lr_contexts,
+                            i,
+                            sentence,
+                        )
+                    },
+                )
+                .reduce(
+                    || {
+                        (
+                            Candidates::new(),
+                            DedupMap::new(),
+                            Occurrences::new(),
+                            LeftRightContext::new(),
+                        )
+                    },
+                    |(mut candidates1, mut dedup_map1, mut occurrences1, mut lr_contexts1),
+                     (candidates2, dedup_map2, occurrences2, lr_contexts2)| {
+                        // Merge Candidates
+                        for (key, mut candidate2) in candidates2 {
+                            candidates1
+                                .entry(key)
+                                .and_modify(|candidate1| {
+                                    candidate1
+                                        .surface_forms
+                                        .append(&mut candidate2.surface_forms);
+                                })
+                                .or_insert(candidate2);
+                        }
+
+                        // Merge DedupMap
+                        for (key, value) in dedup_map2 {
+                            *dedup_map1.entry(key).or_insert(0.0) += value;
+                        }
+
+                        // Merge Occurrences
+                        for (key, mut occurrence_list) in occurrences2 {
+                            occurrences1
+                                .entry(key)
+                                .or_default()
+                                .append(&mut occurrence_list);
+                        }
+
+                        // Merge LeftRightContext
+                        for (key, (mut left_context, mut right_context)) in lr_contexts2 {
+                            lr_contexts1
+                                .entry(key)
+                                .or_insert_with(|| (Vec::new(), Vec::new()))
+                                .0
+                                .append(&mut left_context);
+                            lr_contexts1
+                                .entry(key)
+                                .or_insert_with(|| (Vec::new(), Vec::new()))
+                                .1
+                                .append(&mut right_context);
+                        }
+
+                        (candidates1, dedup_map1, occurrences1, lr_contexts1)
+                    },
+                )
+        }
+
+        #[cfg(not(feature = "parallel"))]
+        {
+            sentences.iter().enumerate().fold(
+                (
+                    Candidates::new(),
+                    DedupMap::new(),
+                    Occurrences::new(),
+                    LeftRightContext::new(),
+                ),
+                |(candidates, dedup_map, occurrences, lr_contexts), (i, sentence)| {
+                    process_sentences(
+                        ngram,
+                        window_size,
+                        &stop_words,
+                        &punctuation,
+                        candidates,
+                        dedup_map,
+                        occurrences,
+                        lr_contexts,
+                        i,
+                        sentence,
+                    )
+                },
+            )
+        }
     }
 }
